@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28010.2019
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "smartcardSupport", "smartcardSupport\smartcardSupport.csproj", "{2ADF6B16-2B48-488A-A709-9CECD0D516BC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2ADF6B16-2B48-488A-A709-9CECD0D516BC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2ADF6B16-2B48-488A-A709-9CECD0D516BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2ADF6B16-2B48-488A-A709-9CECD0D516BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2ADF6B16-2B48-488A-A709-9CECD0D516BC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C574C9CE-27E8-4FFB-B6AF-6C0FCA93FDE3}
+	EndGlobalSection
+EndGlobal
