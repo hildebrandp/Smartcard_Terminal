@@ -63,7 +63,7 @@ namespace smartcardSupport
 
             this.btAddress = btAddress;
 
-            return genQRCode(btAddress + ">>" + pin.ToString() + ">>" + key + ">>" + iv + ">>" + 1);
+            return genQRCode(btAddress + ">>" + pin.ToString() + ">>" + key + ">>" + iv + ">>" + 0);
         }
 
         /// <summary>

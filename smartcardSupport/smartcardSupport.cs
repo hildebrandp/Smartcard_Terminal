@@ -62,7 +62,8 @@ namespace smartcardSupport
         public override void Terminate()
         {
             this.m_host.MainWindow.FileSaving -= this.OnFileSaving;
-            m_host.MainWindow.FileOpened -= this.OnFileOpened;
+            this.m_host.MainWindow.FileOpened -= this.OnFileOpened;
+            this.m_host.MainWindow.FileClosed += this.OnFileClosed;
 
             fileName = String.Empty;
         }

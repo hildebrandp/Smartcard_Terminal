@@ -99,6 +99,7 @@
             this.Controls.Add(this.textBoxMasterPassword);
             this.Controls.Add(this.label1);
             this.Name = "smartcard_PasswordInput";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "smartcard_PasswordInput";
             this.ResumeLayout(false);
             this.PerformLayout();

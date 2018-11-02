@@ -244,6 +244,7 @@
             this.Controls.Add(this.button1);
             this.Controls.Add(this.label1);
             this.Name = "smartcard_pinInput";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "smartcard_pinInput";
             this.Shown += new System.EventHandler(this.smartcard_pinInput_Shown);
             this.ResumeLayout(false);

@@ -140,6 +140,7 @@
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
             this.Name = "smartcard_Init";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "smartcard_Init";
             this.ResumeLayout(false);
             this.PerformLayout();

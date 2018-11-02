@@ -16,6 +16,8 @@ using InTheHand.Net;
 using InTheHand.Net.Bluetooth;
 using InTheHand.Net.Sockets;
 using Microsoft.VisualBasic;
+using System.Globalization;
+using System.IO.Compression;
 
 namespace smartcardSupport
 {
@@ -55,10 +57,21 @@ namespace smartcardSupport
         private String smartcardState = String.Empty;
         private String smartcardFileName = String.Empty;
         private String smartcardFileModified = String.Empty;
+        private int smartcardFileSize_1 = 0;
+        private int smartcardFileSize_2 = 0;
+
+        private Boolean smartcardHasFile = false;
 
         private String fileName = String.Empty;
         private String filePath = String.Empty;
         private String fileModified = String.Empty;
+
+        private StringBuilder newKeePassFile;
+        private int fileOffset = 0;
+        private int readLength = 250;
+        private Boolean readFile_1 = true;
+        private Boolean readFile_2 = true;
+        private String pathForFile = String.Empty;
 
         public Boolean debug = false;
 
@@ -166,19 +179,6 @@ namespace smartcardSupport
             {
                 String logTime = DateTime.Now.ToString("HH:mm:ss", System.Globalization.DateTimeFormatInfo.InvariantInfo);
                 listBoxSystemLog.Items.Insert(0, logTime + " >> " + message);
-            }
-        }
-
-        public void keepassConnector(int trigger)
-        {
-            switch (trigger)
-            {
-                case 0:
-                    break;
-                case 1:
-                    break;
-                case 2:
-                    break;
             }
         }
 
@@ -344,6 +344,7 @@ namespace smartcardSupport
 
                             if (prevCommand.Equals("check_file") && smartcardCode.Equals("9000"))
                             {
+                                smartcardHasFile = true;
                                 String file = _scCodes.dataHexToString(smartcardData);
                                 int cardFileLength = file.Length;
                                 
@@ -356,6 +357,7 @@ namespace smartcardSupport
                             }
                             else if (prevCommand.Equals("check_file") && !smartcardCode.Equals("9000"))
                             {
+                                smartcardHasFile = false;
                                 systemLog("Error getting Filename");
                             }
 
@@ -374,12 +376,44 @@ namespace smartcardSupport
 
                             if (prevCommand.Equals("card_masterPW_get") && smartcardCode.Equals("9000"))
                             {
-                                systemLog("Master Password: <" + _scCodes.dataHexToString(smartcardData) + ">");
+                                systemLog("Master Password copied to Clipboard");
+                                Clipboard.SetText(_scCodes.dataHexToString(smartcardData));
                                 break;
                             }
                             else if (prevCommand.Equals("card_masterPW_get") && !smartcardCode.Equals("9000"))
                             {
                                 systemLog("Getting Master Password Failed");
+                                break;
+                            }
+
+                            if (prevCommand.Equals("card_file_size") && smartcardCode.Equals("9000"))
+                            {
+                                String FileSize_1 = smartcardData.Substring(0, 4);
+                                String FileSize_2 = smartcardData.Substring(4, 4);
+
+                                smartcardFileSize_1 = Convert.ToInt32(FileSize_1, 16);
+                                smartcardFileSize_2 = Convert.ToInt32(FileSize_2, 16);
+
+                                if (debug)
+                                {
+                                    systemLog("File 1 size <" + smartcardFileSize_1 + "> File 2 size <" + smartcardFileSize_2 + ">");
+                                }
+                                
+                                checkFile();
+                            }
+                            else if (prevCommand.Equals("card_file_size") && !smartcardCode.Equals("9000"))
+                            {
+                                systemLog("Error receiving file size");
+                                break;
+                            }
+
+                            if (prevCommand.Equals("card_file_read") && smartcardCode.Equals("9000"))
+                            {
+                                importFile(smartcardData);
+                            }
+                            else if (prevCommand.Equals("card_file_read") && !smartcardCode.Equals("9000"))
+                            {
+                                systemLog("Error receiving file data");
                                 break;
                             }
                         }
@@ -671,8 +705,26 @@ namespace smartcardSupport
                 {
                     button_Import_File.Enabled = true;
                 }
-                button_Export_File.Enabled = true;
+
                 button_Set_MPW.Enabled = true;
+
+                if (!filePath.Equals(""))
+                {
+                    button_Export_File.Enabled = true;
+                }
+                else
+                {
+                    button_Export_File.Enabled = false;
+                }
+
+                if (smartcardHasFile)
+                {
+                    button_Import_File.Enabled = true;
+                }
+                else
+                {
+                    button_Import_File.Enabled = false;
+                }
             }
             else
             {
@@ -709,12 +761,13 @@ namespace smartcardSupport
 
         private void button_Import_File_Click(object sender, EventArgs e)
         {
-
+            lastCommand = "card_file_size";
+            sendAPDU(2, "", _scCodes.card_file_size);
         }
 
         private void button_Export_File_Click(object sender, EventArgs e)
         {
-
+            String tmpData = fileHelper.ZIPFile(fileName, filePath);
         }
 
         private void button_Set_MPW_Click(object sender, EventArgs e)
@@ -738,5 +791,170 @@ namespace smartcardSupport
             lastCommand = "card_masterPW_get";
             sendAPDU(2, "", _scCodes.card_masterPW_get);
         }
+
+        private delegate void checkFileDelegate();
+        private void checkFile()
+        {
+            if (this.InvokeRequired)
+            {
+                this.Invoke(new checkFileDelegate(this.checkFile));
+            }
+            else
+            {
+                systemLog("Select Folder");
+                using (var fbd = new FolderBrowserDialog())
+                {
+                    fbd.Description = "Select Path to save KeePass File";
+                    fbd.ShowNewFolderButton = true;
+                    DialogResult result = fbd.ShowDialog();
+
+                    if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
+                    {
+                        string[] files = Directory.GetFiles(fbd.SelectedPath + "\\");
+
+                        Boolean import = true;
+                        if (files.Length > 0)
+                        {
+                            foreach (String f in files)
+                            {
+                                String file = Path.GetFileNameWithoutExtension(f);
+                                if (file.Equals(smartcardFileName))
+                                {
+                                    DateTime dt_smartcard = DateTime.ParseExact(smartcardFileModified, "yyyy-MM-d_HH-mm-ss", CultureInfo.InvariantCulture);
+                                    DateTime dt_local = File.GetLastWriteTime(f);
+
+                                    int compareDate = DateTime.Compare(dt_smartcard, dt_local);
+
+                                    String txt;
+                                    if (compareDate < 0)
+                                    {
+                                        txt = "Local File is newer. Override?";
+                                    }
+                                    else if (compareDate == 0)
+                                    {
+                                        txt = "Both Files are the same. Import anyway?";
+                                    }
+                                    else
+                                    {
+                                        txt = "File on Smartcard is newer. Continue?";
+                                    }
+
+                                    if (MessageBox.Show("File already exists. " + txt, "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                                    {
+                                        import = false;
+                                    }
+                                }
+                            }
+                        }
+                        if (import)
+                        {
+                            pathForFile = fbd.SelectedPath + "\\";
+                            newKeePassFile = new StringBuilder();
+                            if (smartcardFileSize_2 == 0)
+                            {
+                                readFile_2 = false;
+                            }
+                            fileOffset = 0;
+                            systemLog("Importing file, please wait!");
+                            importFile("");
+                        }
+                    }
+                }
+            }   
+        }
+
+        private void importFile(String data)
+        {
+            lastCommand = "card_file_read";
+
+            if (fileOffset != smartcardFileSize_1 && readFile_1)
+            {
+                readLength = 250;
+
+                if ((fileOffset + readLength) > smartcardFileSize_1)
+                {
+                    readLength = smartcardFileSize_1 - fileOffset;
+                }
+
+                String off = _scCodes.StringToHex(fileOffset);
+                if (off.Length == 2)
+                {
+                    off = "00" + off;
+                }
+
+                String len = _scCodes.StringToHex(readLength);
+                if (len.Length == 2)
+                {
+                    len = "00" + len;
+                }
+
+                if (data.Length > 0)
+                {
+                    newKeePassFile.Append(data);
+                }
+                
+                fileOffset = fileOffset + readLength;
+
+                String sendData = off + len;
+                sendAPDU(2, sendData, _scCodes.card_file_read + "01");
+            }
+            else if (fileOffset == smartcardFileSize_1 && readFile_1)
+            {
+                newKeePassFile.Append(data);
+                readFile_1 = false;
+                fileOffset = 0;
+                readLength = 250;
+            }
+
+            if (fileOffset != smartcardFileSize_2 && readFile_2 && !readFile_1)
+            {
+                if ((fileOffset + 250) > smartcardFileSize_2)
+                {
+                    readLength = smartcardFileSize_2 - fileOffset;
+                }
+
+                String off = _scCodes.StringToHex(fileOffset);
+                if (off.Length == 2)
+                {
+                    off = "00" + off;
+                }
+
+                String len = _scCodes.StringToHex(readLength);
+                if (len.Length == 2)
+                {
+                    len = "00" + len;
+                }
+
+                newKeePassFile.Append(data);
+                fileOffset = fileOffset + readLength;
+
+                String sendData = off + len;
+                sendAPDU(2, sendData, _scCodes.card_file_read + "02");
+            }
+            else if (fileOffset == smartcardFileSize_2 && readFile_2)
+            {
+                newKeePassFile.Append(data);
+                readFile_2 = false;
+            }
+
+            if (!readFile_1 && !readFile_2)
+            {
+                if (debug)
+                {
+                    systemLog("File 1 size: " + smartcardFileSize_1);
+                    systemLog("File 2 size: " + smartcardFileSize_2);
+                    systemLog("Import complete. Read: " + newKeePassFile.Length);
+                }
+
+                fileHelper.unZIPFile(smartcardFileName, pathForFile, newKeePassFile.ToString());
+                //Open in keepass
+            }
+
+            //END IMPORT
+        }
+
+
+
+        //END Class
     }
 }

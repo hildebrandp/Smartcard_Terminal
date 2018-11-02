@@ -151,5 +151,26 @@ namespace smartcardSupport
 
             return sb.ToString();
         }
+
+        public byte[] hexToByteArray(String data)
+        {
+            String hexchars = "0123456789abcdef";
+            data = data.Replace(" ", "").ToLower();
+
+            if (data == null)
+            {
+                return null;
+            }
+
+            Byte[] hex = new Byte[data.Length / 2];
+
+            for (int ii = 0; ii < data.Length; ii += 2)
+            {
+                int i1 = hexchars.IndexOf(data.ElementAt(ii));
+                int i2 = hexchars.IndexOf(data.ElementAt(ii + 1));
+                hex[ii / 2] = (byte)((i1 << 4) | i2);
+            }
+            return hex;
+        }
     }
 }

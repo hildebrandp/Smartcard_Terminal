@@ -86,6 +86,7 @@
             this.Controls.Add(this.textBox1);
             this.Controls.Add(this.label1);
             this.Name = "smartcard_pukInput";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "smartcard_pukInput";
             this.ResumeLayout(false);
             this.PerformLayout();

@@ -133,6 +133,7 @@ namespace smartcardSupport
                     int code = Int32.Parse(message[0]);
                     if (code.Equals(1) && decryptmsg.Equals("smartcard_disconnected"))
                     {
+                        //scDialog.btChangeState("smartcardDisconnected");
                         isConnected = false;
                     }
                     scDialog.receiveMessage(code, decryptmsg);
