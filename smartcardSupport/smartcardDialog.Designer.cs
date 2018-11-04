@@ -41,6 +41,8 @@
             this.button_OpenDatabase = new System.Windows.Forms.Button();
             this.button_Set_MPW = new System.Windows.Forms.Button();
             this.button_Get_MPW = new System.Windows.Forms.Button();
+            this.button_Delete_Data = new System.Windows.Forms.Button();
+            this.button_Reset_Card = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.barcodePicture)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxBluetoothEnable)).BeginInit();
             this.SuspendLayout();
@@ -188,11 +190,37 @@
             this.button_Get_MPW.UseVisualStyleBackColor = true;
             this.button_Get_MPW.Click += new System.EventHandler(this.button_Get_MPW_Click);
             // 
+            // button_Delete_Data
+            // 
+            this.button_Delete_Data.Enabled = false;
+            this.button_Delete_Data.Font = new System.Drawing.Font("Microsoft Sans Serif", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.button_Delete_Data.Location = new System.Drawing.Point(754, 436);
+            this.button_Delete_Data.Name = "button_Delete_Data";
+            this.button_Delete_Data.Size = new System.Drawing.Size(203, 49);
+            this.button_Delete_Data.TabIndex = 15;
+            this.button_Delete_Data.Text = "Delete all Data";
+            this.button_Delete_Data.UseVisualStyleBackColor = true;
+            this.button_Delete_Data.Click += new System.EventHandler(this.button_Delete_Data_Click);
+            // 
+            // button_Reset_Card
+            // 
+            this.button_Reset_Card.Enabled = false;
+            this.button_Reset_Card.Font = new System.Drawing.Font("Microsoft Sans Serif", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.button_Reset_Card.Location = new System.Drawing.Point(754, 491);
+            this.button_Reset_Card.Name = "button_Reset_Card";
+            this.button_Reset_Card.Size = new System.Drawing.Size(203, 49);
+            this.button_Reset_Card.TabIndex = 16;
+            this.button_Reset_Card.Text = "Reset Card";
+            this.button_Reset_Card.UseVisualStyleBackColor = true;
+            this.button_Reset_Card.Click += new System.EventHandler(this.button_Reset_Card_Click);
+            // 
             // smartcardDialog
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1049, 556);
+            this.Controls.Add(this.button_Reset_Card);
+            this.Controls.Add(this.button_Delete_Data);
             this.Controls.Add(this.button_Get_MPW);
             this.Controls.Add(this.button_Set_MPW);
             this.Controls.Add(this.button_OpenDatabase);
@@ -232,5 +260,7 @@
         private System.Windows.Forms.Button button_OpenDatabase;
         private System.Windows.Forms.Button button_Set_MPW;
         private System.Windows.Forms.Button button_Get_MPW;
+        private System.Windows.Forms.Button button_Delete_Data;
+        private System.Windows.Forms.Button button_Reset_Card;
     }
 }

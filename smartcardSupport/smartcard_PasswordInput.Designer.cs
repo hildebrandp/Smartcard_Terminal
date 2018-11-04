@@ -38,7 +38,7 @@
             // buttonCancel
             // 
             this.buttonCancel.Font = new System.Drawing.Font("Microsoft Sans Serif", 20.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.buttonCancel.Location = new System.Drawing.Point(253, 103);
+            this.buttonCancel.Location = new System.Drawing.Point(253, 138);
             this.buttonCancel.Name = "buttonCancel";
             this.buttonCancel.Size = new System.Drawing.Size(139, 52);
             this.buttonCancel.TabIndex = 7;
@@ -49,7 +49,7 @@
             // buttonOK
             // 
             this.buttonOK.Font = new System.Drawing.Font("Microsoft Sans Serif", 20.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.buttonOK.Location = new System.Drawing.Point(398, 103);
+            this.buttonOK.Location = new System.Drawing.Point(398, 138);
             this.buttonOK.Name = "buttonOK";
             this.buttonOK.Size = new System.Drawing.Size(139, 52);
             this.buttonOK.TabIndex = 6;
@@ -60,27 +60,26 @@
             // textBoxMasterPassword
             // 
             this.textBoxMasterPassword.Font = new System.Drawing.Font("Microsoft Sans Serif", 20.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.textBoxMasterPassword.Location = new System.Drawing.Point(12, 59);
+            this.textBoxMasterPassword.Location = new System.Drawing.Point(12, 94);
             this.textBoxMasterPassword.MaxLength = 16;
             this.textBoxMasterPassword.Name = "textBoxMasterPassword";
             this.textBoxMasterPassword.Size = new System.Drawing.Size(526, 38);
             this.textBoxMasterPassword.TabIndex = 5;
-            this.textBoxMasterPassword.TextChanged += new System.EventHandler(this.textBoxMasterPassword_TextChanged);
             // 
             // label1
             // 
             this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 21.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label1.Location = new System.Drawing.Point(12, 9);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(526, 47);
+            this.label1.Size = new System.Drawing.Size(526, 82);
             this.label1.TabIndex = 4;
-            this.label1.Text = "Please enter your Master Password:";
+            this.label1.Text = "Please enter your Master Password: Let empty for delete old Password.";
             // 
             // checkBox1
             // 
             this.checkBox1.AutoSize = true;
             this.checkBox1.Font = new System.Drawing.Font("Microsoft Sans Serif", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.checkBox1.Location = new System.Drawing.Point(12, 103);
+            this.checkBox1.Location = new System.Drawing.Point(12, 138);
             this.checkBox1.Name = "checkBox1";
             this.checkBox1.Size = new System.Drawing.Size(184, 29);
             this.checkBox1.TabIndex = 8;
@@ -92,7 +91,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(556, 169);
+            this.ClientSize = new System.Drawing.Size(556, 206);
             this.Controls.Add(this.checkBox1);
             this.Controls.Add(this.buttonCancel);
             this.Controls.Add(this.buttonOK);

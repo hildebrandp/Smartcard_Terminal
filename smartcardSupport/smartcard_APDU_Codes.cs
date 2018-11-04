@@ -52,7 +52,7 @@ namespace smartcardSupport
         /// send : card_reset + LC (data length) + data (PUK)
         /// get  : SW1,SW2 (9000)
         /// </summary>
-        public String card_reset = "80400301";
+        public String card_reset = "80240000";
         /// <summary>
         /// send : card_file_create + LC (data length) + data (filesize 1 + filesize 2 + file name)
         /// get  : SW1,SW2 (9000)

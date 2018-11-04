@@ -45,6 +45,7 @@ namespace smartcardSupport
 
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
+
             if (textBox1.Text.ToString().Length == 16)
             {
                 buttonOK.Enabled = true;

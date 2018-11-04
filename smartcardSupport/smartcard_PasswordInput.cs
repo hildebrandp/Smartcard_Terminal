@@ -17,7 +17,7 @@ namespace smartcardSupport
         public smartcard_PasswordInput()
         {
             InitializeComponent();
-            buttonOK.Enabled = false;
+            buttonOK.Enabled = true;
             textBoxMasterPassword.UseSystemPasswordChar = true;
         }
 
@@ -32,18 +32,6 @@ namespace smartcardSupport
             this.masterPassword = textBoxMasterPassword.Text.ToString().ToLower();
             this.DialogResult = DialogResult.OK;
             this.Close();
-        }
-
-        private void textBoxMasterPassword_TextChanged(object sender, EventArgs e)
-        {
-            if (textBoxMasterPassword.Text.ToString().Length > 0)
-            {
-                buttonOK.Enabled = true;
-            }
-            else
-            {
-                buttonOK.Enabled = false;
-            }
         }
 
         private void checkBox1_CheckStateChanged(object sender, EventArgs e)

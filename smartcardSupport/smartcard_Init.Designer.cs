@@ -148,14 +148,13 @@
         }
 
         #endregion
-
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Label label2;
         private System.Windows.Forms.TextBox in_pin_1;
-        private System.Windows.Forms.Label label3;
         private System.Windows.Forms.TextBox in_pin_2;
         private System.Windows.Forms.Button button_ok;
         private System.Windows.Forms.Button button_cancel;
         private System.Windows.Forms.CheckBox show_pin;
+        public System.Windows.Forms.Label label1;
+        public System.Windows.Forms.Label label2;
+        public System.Windows.Forms.Label label3;
     }
 }

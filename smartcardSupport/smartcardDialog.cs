@@ -302,6 +302,18 @@ namespace smartcardSupport
                                 break;
                             }
 
+                            if (prevCommand.Equals("card_pin_change") && smartcardCode.Equals("9000"))
+                            {
+                                systemLog("PIN change successfull");
+
+                                break;
+                            }
+                            else if (prevCommand.Equals("card_pin_change") && !smartcardCode.Equals("9000"))
+                            {
+                                systemLog("Error changing PIN");
+                                break;
+                            }
+
                             if (prevCommand.Equals("pin_locked") && smartcardCode.Equals("9000"))
                             {
                                 verifyPIN(true);
@@ -321,7 +333,7 @@ namespace smartcardSupport
                                         break;
                                     case "63C0":
                                         systemLog("PUK wrong! 0 Tries remaining.");
-                                        systemLog("Card is Locked forever!!!");
+                                        systemLog("Smartcard is Locked!!!");
                                         break;
                                 }
                                 break;
@@ -356,7 +368,11 @@ namespace smartcardSupport
                                 smartcardFileModified = file.Substring(cardFileLength - 24, 19);
                                 smartcardFileName = file.Substring(0, cardFileLength - 25); 
 
-                                systemLog("Found File <" + smartcardFileName + "> Modified <" + smartcardFileModified + ">");
+                                if (debug)
+                                {
+                                    systemLog("Found File <" + smartcardFileName + "> Modified <" + smartcardFileModified + ">");
+                                } 
+                                
                                 cardUnlocked(true);
                                 break;
                             }
@@ -368,14 +384,27 @@ namespace smartcardSupport
 
                             if (prevCommand.Equals("card_masterPW_set") && smartcardCode.Equals("9000"))
                             {
-                                systemLog("Masster Password successfully uploaded");
+                                systemLog("Master Password successfully uploaded");
                                 masterPassword = true;
                                 button_Get_MPW.Enabled = true;
                                 break;
                             }
                             else if (prevCommand.Equals("card_masterPW_set") && !smartcardCode.Equals("9000"))
                             {
-                                systemLog("Masster Password upload failed");
+                                systemLog("Master Password upload failed");
+                                break;
+                            }
+
+                            if (prevCommand.Equals("card_masterPW_delete") && smartcardCode.Equals("9000"))
+                            {
+                                systemLog("Masster Password delete successfull");
+                                masterPassword = false;
+                                button_Get_MPW.Enabled = false;
+                                break;
+                            }
+                            else if (prevCommand.Equals("card_masterPW_delete") && !smartcardCode.Equals("9000"))
+                            {
+                                systemLog("Masster Password delete failed");
                                 break;
                             }
 
@@ -455,6 +484,76 @@ namespace smartcardSupport
                             else if (prevCommand.Equals("card_file_write") && !smartcardCode.Equals("9000"))
                             {
                                 systemLog("Error uploading File on Smartcard");
+                                break;
+                            }
+
+                            if (prevCommand.Equals("card_delete_1") && smartcardCode.Equals("9000"))
+                            {
+                                deleteAllData(2, "");
+                                break;
+                            }
+                            else if (prevCommand.Equals("card_delete_1") && !smartcardCode.Equals("9000"))
+                            {
+                                switch (smartcardCode)
+                                {
+                                    case "63C2":
+                                        systemLog("Password wrong! 2 Tries remaining.");
+                                        button_Delete_Data.PerformClick();
+                                        break;
+                                    case "63C1":
+                                        systemLog("Password wrong! 1 Tries remaining.");
+                                        button_Delete_Data.PerformClick();
+                                        break;
+                                    case "63C0":
+                                        systemLog("Password wrong! 0 Tries remaining.");
+                                        systemLog("PIN is Locked. Use PUK to unlock.");
+                                        pinIsBlocked();
+                                        break;
+                                }
+                                systemLog("Error deleting data");
+                                break;
+                            }
+                            else if (prevCommand.Equals("card_delete_2") && smartcardCode.Equals("9000"))
+                            {
+                                deleteAllData(3, "");
+                                break;
+                            }
+                            else if (prevCommand.Equals("card_delete_2") && smartcardCode.Equals("9000"))
+                            {
+                                deleteAllData(4, "");
+                                break;
+                            }
+                            else if ((prevCommand.Equals("card_delete_1") || prevCommand.Equals("card_delete_2") || prevCommand.Equals("card_delete_3")) && !smartcardCode.Equals("9000"))
+                            {
+                                deleteAllData(5, "");
+                                break;
+                            }
+
+                            if (prevCommand.Equals("card_reset") && smartcardCode.Equals("9000"))
+                            {
+                                if (MessageBox.Show("Smartcard reset successfull.", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information) == DialogResult.OK)
+                                {
+                                    btChangeState("smartcardDisconnected");
+                                }
+                            }
+                            else if (prevCommand.Equals("card_reset") && !smartcardCode.Equals("9000"))
+                            {
+                                switch (smartcardCode)
+                                {
+                                    case "63C2":
+                                        systemLog("PUK wrong! 2 Tries remaining.");
+                                        button_Reset_Card.PerformClick();
+                                        break;
+                                    case "63C1":
+                                        systemLog("PUK wrong! 1 Tries remaining.");
+                                        button_Reset_Card.PerformClick();
+                                        break;
+                                    case "63C0":
+                                        systemLog("PUK wrong! 0 Tries remaining.");
+                                        systemLog("Smartcard is Locked!!!");
+                                        break;
+                                }
+                                systemLog("Error resetting Smartcard");
                                 break;
                             }
                         }
@@ -544,6 +643,8 @@ namespace smartcardSupport
                     button_Export_File.Enabled = false;
                     button_Get_MPW.Enabled = false;
                     button_Set_MPW.Enabled = false;
+                    button_Delete_Data.Enabled = false;
+                    button_Reset_Card.Enabled = false;
                     break;
                 case "scAppletConnected":
                     systemLog("Smartcard connected");
@@ -721,6 +822,7 @@ namespace smartcardSupport
                         else
                         {
                             scPassword = form.PIN;
+                            hasPassword = true;
                             sendAPDU(2, scPassword, _scCodes.card_verify);
                         }                        
                     }
@@ -741,6 +843,7 @@ namespace smartcardSupport
                 if (masterPassword)
                 {
                     button_Get_MPW.Enabled = true;
+                    button_Delete_Data.Enabled = true;
                 }
                 if (smartcardState == _scCodes.STATE_SECURE_DATA)
                 {
@@ -761,11 +864,18 @@ namespace smartcardSupport
                 if (smartcardHasFile)
                 {
                     button_Import_File.Enabled = true;
+                    button_Delete_Data.Enabled = true;
                 }
                 else
                 {
                     button_Import_File.Enabled = false;
                 }
+
+                if (!masterPassword && !smartcardHasFile)
+                {
+                    button_Delete_Data.Enabled = false;
+                }
+                button_Reset_Card.Enabled = true;
             }
             else
             {
@@ -818,8 +928,8 @@ namespace smartcardSupport
             {
                 if (fileName.Equals(smartcardFileName))
                 {
-                    DateTime dt_smartcard = DateTime.ParseExact(smartcardFileModified, "yyyy-MM-d_HH-mm-ss", CultureInfo.InvariantCulture);
-                    DateTime dt_local = File.GetLastWriteTime(fileModified);
+                    DateTime dt_smartcard = DateTime.ParseExact(smartcardFileModified, "yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture);
+                    DateTime dt_local = DateTime.ParseExact(fileModified, "yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture);
 
                     int compareDate = DateTime.Compare(dt_smartcard, dt_local);
 
@@ -842,6 +952,7 @@ namespace smartcardSupport
                         import = false;
                     }
                 }
+
                 if (import)
                 {
                     lastCommand = "card_file_delete";
@@ -894,7 +1005,7 @@ namespace smartcardSupport
                 {
                     systemLog("File size 1: " + hexSize_file_1 + ". File size 2: " + hexSize_file_2);
                 }
-                systemLog("File size 1: " + hexSize_file_1 + ". File size 2: " + hexSize_file_2);
+
                 String sendName = fileName + "-" + fileModified + ".kdbx";
                 String sendTMP = hexSize_file_1 + hexSize_file_2 + _scCodes.textStringToHex(sendName);
                 lastCommand = "card_file_create";
@@ -930,7 +1041,6 @@ namespace smartcardSupport
             }
             else if (readFile_1 && fileOffset == file_1_size)
             {
-                systemLog("Upload 1 finish");
                 readFile_1 = false;
                 readLength = 250;
             }
@@ -959,12 +1069,12 @@ namespace smartcardSupport
             }
             else if (readFile_2 && fileOffset == (file_2_size + 30000) && !readFile_1)
             {
-                systemLog("Upload 2 finish");
                 readFile_2 = false;
             }
 
             if (!readFile_1 && !readFile_2)
             {
+                button_Delete_Data.Enabled = true;
                 systemLog("File export complete");
             }
         }
@@ -977,10 +1087,19 @@ namespace smartcardSupport
 
                 if (result == DialogResult.OK)
                 {
-                    lastCommand = "card_masterPW_set";
-                    String password = _scCodes.textStringToHex(form.masterPassword);
+                    if (form.masterPassword.Equals(""))
+                    {
+                        lastCommand = "card_masterPW_delete";
 
-                    sendAPDU(2, password, _scCodes.card_masterPW_set);
+                        sendAPDU(2, "", _scCodes.card_masterPW_delete);
+                    }
+                    else
+                    {
+                        lastCommand = "card_masterPW_set";
+                        String password = _scCodes.textStringToHex(form.masterPassword);
+
+                        sendAPDU(2, password, _scCodes.card_masterPW_set);
+                    }  
                 }
             }
         }
@@ -989,6 +1108,112 @@ namespace smartcardSupport
         {
             lastCommand = "card_masterPW_get";
             sendAPDU(2, "", _scCodes.card_masterPW_get);
+        }
+
+        private void button_Delete_Data_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("Do you really want to delete all Data on the Smartcard?", "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK)
+            {
+                deleteAllData(1, scPassword);
+            }
+        }
+
+        private void deleteAllData(int number, String pin)
+        {
+            if (number == 1)
+            {
+                lastCommand = "card_delete_1";
+                sendAPDU(2, pin, _scCodes.card_verify);
+            }
+            else if (number == 2)
+            {
+                if (smartcardHasFile)
+                {
+                    lastCommand = "card_delete_2";
+                    sendAPDU(2, "", _scCodes.card_file_delete + "03");
+                }
+                else
+                {
+                    deleteAllData(3, "");
+                }
+            }
+            else if (number == 3)
+            {
+                if (masterPassword)
+                {
+                    lastCommand = "card_delete_3";
+                    sendAPDU(2, "", _scCodes.card_masterPW_delete);
+                }
+                else
+                {
+                    deleteAllData(4, "");
+                }
+            }
+            else if (number == 4)
+            {
+                masterPassword = false;
+                smartcardHasFile = false;
+                button_Import_File.Enabled = false;
+                
+                systemLog("All Data successfully deleted.");
+                button_Delete_Data.Enabled = false;
+            }
+            else
+            {
+                systemLog("Error deleting Data");
+            }
+        }
+
+        private void button_Reset_Card_Click(object sender, EventArgs e)
+        {
+            var res = MessageBox.Show("Really want to reset Card? Press YES, if you want to change Pin press NO", "Information", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
+            if (res == DialogResult.Yes)
+            {
+                using (var form = new smartcard_pukInput())
+                {
+                    form.label1.Text = "Please enter PUK to reset Smartcard:";
+                    var result = form.ShowDialog();
+
+                    if (result == DialogResult.OK)
+                    {
+                        lastCommand = "card_reset";
+                        sendAPDU(2, form.puk, _scCodes.card_reset);
+                    }
+                }
+            }
+            else if (res == DialogResult.No)
+            {
+                using (var form = new smartcard_Init())
+                {
+                    var result = form.ShowDialog();
+                    form.Text = "Change PIN";
+                    form.label1.Text = "Please enter new PIN:";
+
+                    if (result == DialogResult.OK)
+                    {
+                        lastCommand = "card_pin_change";
+                        String pwNew = form.pin;
+                        String pwOld = scPassword;
+
+                        while (pwNew.Length < 32)
+                        {
+                            pwNew += "0";
+                        }
+
+                        while (pwOld.Length < 32)
+                        {
+                            pwOld += "0";
+                        }
+
+                        scPassword = form.pin;
+                        sendAPDU(2, pwOld + pwNew, _scCodes.card_pin_change);
+                    }
+                    else
+                    {
+                        systemLog("PIN change canceled");
+                    }
+                }
+            }   
         }
 
         private delegate void checkFileDelegate();
@@ -1020,7 +1245,7 @@ namespace smartcardSupport
                                 if (file.Equals(smartcardFileName))
                                 {
                                     DateTime dt_smartcard = DateTime.ParseExact(smartcardFileModified, "yyyy-MM-d_HH-mm-ss", CultureInfo.InvariantCulture);
-                                    DateTime dt_local = File.GetLastWriteTime(f);
+                                    DateTime dt_local = DateTime.ParseExact(f, "yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture);
 
                                     int compareDate = DateTime.Compare(dt_smartcard, dt_local);
 
@@ -1045,6 +1270,7 @@ namespace smartcardSupport
                                 }
                             }
                         }
+
                         if (import)
                         {
                             pathForFile = fbd.SelectedPath + "\\";
@@ -1155,7 +1381,6 @@ namespace smartcardSupport
 
             //END IMPORT
         }
-
 
 
         //END Class
