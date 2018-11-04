@@ -115,6 +115,16 @@ namespace smartcardSupport
             }
         }
 
+        public String byteToString(byte[] dataToConvert)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach(Byte b in dataToConvert)
+            {
+                sb.Append(b.ToString("X2"));
+            }
+            return sb.ToString();
+        }
+
         public String StringToHex(int length)
         {
             String hex = length.ToString("X");

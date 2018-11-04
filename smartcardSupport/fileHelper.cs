@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.IO.Compression;
+using System.Windows.Forms;
 
 namespace smartcardSupport
 {
@@ -32,24 +33,31 @@ namespace smartcardSupport
             return true;
         }
 
-        public static String ZIPFile(String filename, String path)
+        public static String ZIPFile(String filename, String path, String fileModified)
         {
-            String tmpPath = path.Substring(0, path.LastIndexOf("\\"));
-            ZipArchive zip = ZipFile.Open(tmpPath + "\\" + "keepassZIP.zip", ZipArchiveMode.Create);
-            zip.CreateEntryFromFile(path , filename + ".kdbx", CompressionLevel.Optimal);
-            zip.Dispose();
+            try
+            {
+                String tmpPath = path.Substring(0, path.LastIndexOf("\\"));
+                ZipArchive zip = ZipFile.Open(tmpPath + "\\" + "keepassZIP.zip", ZipArchiveMode.Create);
+                zip.CreateEntryFromFile(path, filename + ".kdbx", CompressionLevel.Optimal);
+                zip.Dispose();
 
-            FileStream fs = new FileStream(tmpPath + "keepassZIP.zip", FileMode.Open, FileAccess.Read);
-            Byte[] readData = new Byte[fs.Length];
-            fs.Read(readData, 0, (int)fs.Length);
+                //FileStream fs = new FileStream(tmpPath + "\\" + "keepassZIP.zip", FileMode.Open, FileAccess.Read);
+                Byte[] readData = File.ReadAllBytes(tmpPath + "\\" + "keepassZIP.zip");
 
-            smartcard_APDU_Codes smartcard_APDU_Codes = new smartcard_APDU_Codes();
-            String send = smartcard_APDU_Codes.textStringToHex(readData.ToString());
+                smartcard_APDU_Codes smartcard_APDU_Codes = new smartcard_APDU_Codes();
+                String send = smartcard_APDU_Codes.byteToString(readData);
 
-            fs.Close();
-            File.Delete(tmpPath + "keepassZIP.zip");
-
-            return send;
+                File.Delete(tmpPath + "\\" + "keepassZIP.zip");
+                return send;
+           
+            } catch (Exception e)
+            {
+                if (MessageBox.Show("Error Zip: " + e, "Export Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning) != DialogResult.OK)
+                {
+                }
+                return "";
+            }    
         }
     }
 }

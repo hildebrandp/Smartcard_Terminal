@@ -66,11 +66,16 @@ namespace smartcardSupport
         private String filePath = String.Empty;
         private String fileModified = String.Empty;
 
+        private String exportData = String.Empty;
+        private String exportLength = String.Empty;
+        private int file_1_size = 0;
+        private int file_2_size = 0;
         private StringBuilder newKeePassFile;
         private int fileOffset = 0;
         private int readLength = 250;
         private Boolean readFile_1 = true;
         private Boolean readFile_2 = true;
+        private Boolean dataleft = true;
         private String pathForFile = String.Empty;
 
         public Boolean debug = false;
@@ -400,6 +405,7 @@ namespace smartcardSupport
                                 }
                                 
                                 checkFile();
+                                break;
                             }
                             else if (prevCommand.Equals("card_file_size") && !smartcardCode.Equals("9000"))
                             {
@@ -410,10 +416,45 @@ namespace smartcardSupport
                             if (prevCommand.Equals("card_file_read") && smartcardCode.Equals("9000"))
                             {
                                 importFile(smartcardData);
+                                break;
                             }
                             else if (prevCommand.Equals("card_file_read") && !smartcardCode.Equals("9000"))
                             {
                                 systemLog("Error receiving file data");
+                                break;
+                            }
+                            
+                            if (prevCommand.Equals("card_file_delete") && smartcardCode.Equals("9000"))
+                            {
+                                createNewFile();
+                                break;
+                            }
+                            else if (prevCommand.Equals("card_file_delete") && !smartcardCode.Equals("9000"))
+                            {
+                                systemLog("Error deleting data on Smartcard");
+                                break;
+                            }
+
+                            if (prevCommand.Equals("card_file_create") && smartcardCode.Equals("9000"))
+                            {
+                                systemLog("Uploading File to Smartcard Please wait.");
+                                uploadFileToSC();
+                                break;
+                            }
+                            else if (prevCommand.Equals("card_file_create") && !smartcardCode.Equals("9000"))
+                            {
+                                systemLog("Error creating File on Smartcard");
+                                break;
+                            }
+
+                            if (prevCommand.Equals("card_file_write") && smartcardCode.Equals("9000"))
+                            {
+                                uploadFileToSC();
+                                break;
+                            }
+                            else if (prevCommand.Equals("card_file_write") && !smartcardCode.Equals("9000"))
+                            {
+                                systemLog("Error uploading File on Smartcard");
                                 break;
                             }
                         }
@@ -525,8 +566,8 @@ namespace smartcardSupport
             String data = "";
             if (data2send.Length >= 2)
             {
-                dataLength = _scCodes.StringToHex(data2send.Length / 2);
                 data = _scCodes.checkLength(data2send);
+                dataLength = _scCodes.StringToHex(data.Length / 2);    
             }   
 
             String sendData = apdu + dataLength + data;
@@ -767,7 +808,165 @@ namespace smartcardSupport
 
         private void button_Export_File_Click(object sender, EventArgs e)
         {
-            String tmpData = fileHelper.ZIPFile(fileName, filePath);
+            exportData = fileHelper.ZIPFile(fileName, filePath, fileModified);
+            fileOffset = 0;
+            readLength = 250;
+
+            Boolean import = true;
+
+            if (smartcardState == _scCodes.STATE_SECURE_DATA)
+            {
+                if (fileName.Equals(smartcardFileName))
+                {
+                    DateTime dt_smartcard = DateTime.ParseExact(smartcardFileModified, "yyyy-MM-d_HH-mm-ss", CultureInfo.InvariantCulture);
+                    DateTime dt_local = File.GetLastWriteTime(fileModified);
+
+                    int compareDate = DateTime.Compare(dt_smartcard, dt_local);
+
+                    String txt;
+                    if (compareDate < 0)
+                    {
+                        txt = "Local File is newer. Continue?";
+                    }
+                    else if (compareDate == 0)
+                    {
+                        txt = "Both Files are the same. Export anyway?";
+                    }
+                    else
+                    {
+                        txt = "File on Smartcard is newer. Override?";
+                    }
+
+                    if (MessageBox.Show("File already exists. " + txt, "Export Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                    {
+                        import = false;
+                    }
+                }
+                if (import)
+                {
+                    lastCommand = "card_file_delete";
+                    sendAPDU(2, "", _scCodes.card_file_delete + "03");
+                    return;
+                }
+            }
+            createNewFile();
+        }
+
+        private void createNewFile()
+        {
+            int len = exportData.Length / 2;
+
+            if (len > 50000)
+            {
+                MessageBox.Show("File is too big. Maximum size is 50KB.", "Export Warning", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            else
+            {
+                readFile_1 = true;
+
+                if (len > 30000)
+                {
+                    file_1_size = 30000;
+                    file_2_size = len - 30000;
+                    readFile_2 = true;
+                }
+                else
+                {
+                    file_1_size = len;
+                    file_2_size = 0;
+                    readFile_2 = false;
+                }
+
+                String hexSize_file_1 = _scCodes.StringToHex(file_1_size);
+                String hexSize_file_2 = _scCodes.StringToHex(file_2_size);
+
+                if (hexSize_file_1.Length == 2)
+                {
+                    hexSize_file_1 = "00" + hexSize_file_1;
+                }
+
+                if (hexSize_file_2.Length == 2)
+                {
+                    hexSize_file_2 = "00" + hexSize_file_2;
+                }
+
+                if (debug)
+                {
+                    systemLog("File size 1: " + hexSize_file_1 + ". File size 2: " + hexSize_file_2);
+                }
+                systemLog("File size 1: " + hexSize_file_1 + ". File size 2: " + hexSize_file_2);
+                String sendName = fileName + "-" + fileModified + ".kdbx";
+                String sendTMP = hexSize_file_1 + hexSize_file_2 + _scCodes.textStringToHex(sendName);
+                lastCommand = "card_file_create";
+                fileOffset = 0;
+                readLength = 250;
+                sendAPDU(2, sendTMP, _scCodes.card_file_create);
+            }
+        }
+
+        private void uploadFileToSC()
+        {
+            String tmpSend;
+
+            if (readFile_1 && fileOffset != file_1_size)
+            {
+                if ((fileOffset + readLength) > file_1_size)
+                {
+                    readLength = file_1_size - fileOffset;
+                }
+
+                String off = _scCodes.StringToHex(fileOffset);
+                if (off.Length == 2)
+                {
+                    off = "00" + off;
+                }
+
+                tmpSend = off + exportData.Substring(fileOffset * 2, readLength * 2);
+                fileOffset += readLength;
+
+                lastCommand = "card_file_write";
+                sendAPDU(2, tmpSend, _scCodes.card_file_write + "01");
+                return;
+            }
+            else if (readFile_1 && fileOffset == file_1_size)
+            {
+                systemLog("Upload 1 finish");
+                readFile_1 = false;
+                readLength = 250;
+            }
+
+
+
+            if (readFile_2 && fileOffset != (file_2_size + 30000) && !readFile_1)
+            {
+                if ((fileOffset + readLength) > (file_2_size + 30000))
+                {
+                    readLength = file_2_size - fileOffset;
+                }
+
+                String off = _scCodes.StringToHex(fileOffset);
+                if (off.Length == 2)
+                {
+                    off = "00" + off;
+                }
+
+                tmpSend = off + exportData.Substring(fileOffset * 2, readLength * 2);
+                fileOffset = fileOffset + readLength;
+
+                lastCommand = "card_file_write";
+                sendAPDU(2, tmpSend, _scCodes.card_file_write + "02");
+                return;
+            }
+            else if (readFile_2 && fileOffset == (file_2_size + 30000) && !readFile_1)
+            {
+                systemLog("Upload 2 finish");
+                readFile_2 = false;
+            }
+
+            if (!readFile_1 && !readFile_2)
+            {
+                systemLog("File export complete");
+            }
         }
 
         private void button_Set_MPW_Click(object sender, EventArgs e)
@@ -839,7 +1038,7 @@ namespace smartcardSupport
                                         txt = "File on Smartcard is newer. Continue?";
                                     }
 
-                                    if (MessageBox.Show("File already exists. " + txt, "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                                    if (MessageBox.Show("File already exists. " + txt, "Import Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                                     {
                                         import = false;
                                     }
@@ -850,11 +1049,14 @@ namespace smartcardSupport
                         {
                             pathForFile = fbd.SelectedPath + "\\";
                             newKeePassFile = new StringBuilder();
+                            readFile_1 = true;
+                            readFile_2 = true;
                             if (smartcardFileSize_2 == 0)
                             {
                                 readFile_2 = false;
                             }
                             fileOffset = 0;
+                            readLength = 250;
                             systemLog("Importing file, please wait!");
                             importFile("");
                         }
@@ -947,6 +1149,7 @@ namespace smartcardSupport
                 }
 
                 fileHelper.unZIPFile(smartcardFileName, pathForFile, newKeePassFile.ToString());
+                systemLog("Import complete.");
                 //Open in keepass
             }
 
