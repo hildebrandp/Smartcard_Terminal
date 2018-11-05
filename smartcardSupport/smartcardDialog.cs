@@ -1166,7 +1166,7 @@ namespace smartcardSupport
 
         private void button_Reset_Card_Click(object sender, EventArgs e)
         {
-            var res = MessageBox.Show("Really want to reset Card? Press YES, if you want to change Pin press NO", "Information", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
+            var res = MessageBox.Show("Really want to reset Card?\n Press YES to reset the Smartcard,\n if you want to change Pin press No.", "Information", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
             if (res == DialogResult.Yes)
             {
                 using (var form = new smartcard_pukInput())
