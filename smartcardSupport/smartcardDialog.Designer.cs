@@ -29,7 +29,6 @@
         private void InitializeComponent()
         {
             this.barcodePicture = new System.Windows.Forms.PictureBox();
-            this.barcodeLabel = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.textBoxConnectedDevice = new System.Windows.Forms.TextBox();
             this.pictureBoxBluetoothEnable = new System.Windows.Forms.PictureBox();
@@ -55,17 +54,6 @@
             this.barcodePicture.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
             this.barcodePicture.TabIndex = 0;
             this.barcodePicture.TabStop = false;
-            // 
-            // barcodeLabel
-            // 
-            this.barcodeLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 24F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.barcodeLabel.Image = global::smartcardSupport.Properties.Resources.barcode2;
-            this.barcodeLabel.Location = new System.Drawing.Point(30, 30);
-            this.barcodeLabel.Name = "barcodeLabel";
-            this.barcodeLabel.Size = new System.Drawing.Size(400, 400);
-            this.barcodeLabel.TabIndex = 1;
-            this.barcodeLabel.Text = "label1";
-            this.barcodeLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // label1
             // 
@@ -232,7 +220,6 @@
             this.Controls.Add(this.pictureBoxBluetoothEnable);
             this.Controls.Add(this.textBoxConnectedDevice);
             this.Controls.Add(this.label1);
-            this.Controls.Add(this.barcodeLabel);
             this.Controls.Add(this.barcodePicture);
             this.Name = "smartcardDialog";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
@@ -248,7 +235,6 @@
         #endregion
 
         private System.Windows.Forms.PictureBox barcodePicture;
-        private System.Windows.Forms.Label barcodeLabel;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.TextBox textBoxConnectedDevice;
         private System.Windows.Forms.PictureBox pictureBoxBluetoothEnable;

@@ -38,7 +38,6 @@ namespace smartcardSupport
             //this.optionsMenu.Image = ; // Add image
             m_host.MainWindow.ToolsMenu.DropDownItems.Add(this.optionsMenu);
 
-            m_host.MainWindow.FileSaving += this.OnFileSaving;
             m_host.MainWindow.FileOpened += this.OnFileOpened;
             m_host.MainWindow.FileClosed += this.OnFileClosed;
 
@@ -153,7 +152,6 @@ namespace smartcardSupport
 
         public override void Terminate()
         {
-            m_host.MainWindow.FileSaving -= this.OnFileSaving;
             m_host.MainWindow.FileOpened -= this.OnFileOpened;
             m_host.MainWindow.FileClosed -= this.OnFileClosed;
 
@@ -161,35 +159,6 @@ namespace smartcardSupport
             {
                 t.Abort();
             }
-        }
-
-        private void OnFileSaving(object sender, FileSavingEventArgs e)
-        {
-            // check if SC is connected
-            // if connected : getfilename
-            // if localFileisnewer : ask if upload to smartcard
-
-
-#if false
-            string fName = "";
-            if (e.Database.IOConnectionInfo.IsLocalFile())
-            {
-                // local file
-                var f = new FileInfo(e.Database.IOConnectionInfo.Path);
-                fName = f.FullName;
-
-                f = null;
-                var form1 = new smartcardDialog(0, fName);
-                form1.ShowDialog();
-            }
-            else
-            {
-                if (MessageBox.Show("Only Local stored Files allowed", "Error", MessageBoxButtons.OK, MessageBoxIcon.Question) == DialogResult.OK)
-                {
-                    Terminate();
-                }
-            } 
-#endif
         }
 
         private void OnFileClosed(object sender, FileClosedEventArgs e)

@@ -130,7 +130,6 @@ namespace smartcardSupport
                 key = _qrCodeClass.getKey();
                 pin = _qrCodeClass.getPin();
 
-                barcodeLabel.Visible = false;
                 _bluetoothClass.startBTListener();
             }
         }
@@ -621,8 +620,7 @@ namespace smartcardSupport
                     break;
 
                 case "connected":
-                    //barcodeLabel.Visible = true;
-                    //barcodeLabel.Text = barcodeLabel_Connected;
+                    barcodePicture.Image = Properties.Resources.barcode2;
                     pictureBoxBluetoothEnable.Image = Properties.Resources.Apps_Bluetooth_Active_icon;
                     textBoxConnectedDevice.Text = _bluetoothClass.getBTName();
                     break;
@@ -647,8 +645,6 @@ namespace smartcardSupport
 
                 case "smartcardDisconnected":
                     systemLog("Smartcard disconnected");
-                    //barcodeLabel.Visible = true;
-                    //barcodeLabel.Text = barcodeLabel_SmartcardDisconnected;
                     is_Smartcard_App_Connected = false;
                     isSmartcardAuthenticated = false;
                     scPassword = String.Empty;
@@ -663,6 +659,10 @@ namespace smartcardSupport
                     button_Set_MPW.Enabled = false;
                     button_Delete_Data.Enabled = false;
                     button_Reset_Card.Enabled = false;
+                    unlockFile = false;
+                    openFile = false;
+                    openFilePath = String.Empty;
+                    openFilePW = String.Empty;
                     break;
                 case "scAppletConnected":
                     systemLog("Smartcard connected");
