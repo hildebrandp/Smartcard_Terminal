@@ -36,3 +36,4 @@ D:\Coding\Visual Studio 2017\Bachelorarbeit\smartcardSupport\smartcardSupport\Sm
 D:\Coding\Visual Studio 2017\Bachelorarbeit\smartcardSupport\smartcardSupport\KeePass-2.40\Plugins\smartcardSupport.dll
 D:\Coding\Visual Studio 2017\Bachelorarbeit\smartcardSupport\smartcardSupport\KeePass-2.40\Plugins\smartcardSupport.pdb
 D:\Coding\Visual Studio 2017\Bachelorarbeit\smartcardSupport\smartcardSupport\Smartcard_Terminal\smartcardSupport\obj\Debug\smartcardSupport.csproj.CopyComplete
+D:\Coding\Visual Studio 2017\Bachelorarbeit\smartcardSupport\smartcardSupport\Smartcard_Terminal\smartcardSupport\obj\Debug\smartcardSupport.bluetoothClass.resources

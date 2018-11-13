@@ -1,7 +1,6 @@
 ﻿using KeePass.Plugins;
 using KeePass.Forms;
-using KeePassLib.Keys;
-
+using KeePass;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +8,10 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO;
+using KeePassLib.Keys;
+using KeePassLib.Utility;
+using KeePassLib.Serialization;
+using System.Threading;
 
 namespace smartcardSupport
 {
@@ -23,6 +26,7 @@ namespace smartcardSupport
         private String fileName = String.Empty;
         private String filePath = String.Empty;
         private String fileModified = String.Empty;
+        Thread t;
 
         public override bool Initialize(IPluginHost host)
         {
@@ -38,34 +42,85 @@ namespace smartcardSupport
             m_host.MainWindow.FileOpened += this.OnFileOpened;
             m_host.MainWindow.FileClosed += this.OnFileClosed;
 
+            
             return true;
         }
 
         private void OnOptions_Click(object sender, EventArgs e)
         {
-            //scDialog = new smartcardDialog();
-            using (var form = new smartcardDialog(startCode, this, fileName, filePath, fileModified))
+            //t = new Thread(() => openSmartcardTerminal());
+            //t.Start();
+            openSmartcardTerminal();
+        }
+
+        private void openSmartcardTerminal()
+        {
+            String lastFile = "";
+            IOConnectionInfo ioLastFile = Program.Config.Application.LastUsedFile;
+            if (ioLastFile.Path.Length > 0)
+            {
+                lastFile = ioLastFile.Path;
+            }
+
+            using (var form = new smartcardDialog(startCode, this, fileName, filePath, fileModified, lastFile))
             {
                 var result = form.ShowDialog();
+                String path = form.openFilePath;
+                String pw = form.openFilePW;
 
                 if (result == DialogResult.OK)
                 {
-                    
+                    if (form.openFile)
+                    {
+                        if (path != null)
+                        {
+                            if (pw != null)
+                            {
+                                openDatabase(path, pw);
+                            }
+                            else
+                            {
+                                openDatabase(path);
+                            }
+                        }
+                    }
                 }
-                else
+                else if (result == DialogResult.Yes)
                 {
-                    
+                    openLastFile(pw);
                 }
             }
         }
 
-        public override void Terminate()
+        public void openDatabase(String filePath)
         {
-            this.m_host.MainWindow.FileSaving -= this.OnFileSaving;
-            this.m_host.MainWindow.FileOpened -= this.OnFileOpened;
-            this.m_host.MainWindow.FileClosed += this.OnFileClosed;
+            IOConnectionInfo conInfo = IOConnectionInfo.FromPath(filePath);
+            Program.MainForm.OpenDatabase(conInfo, null, false); 
+        }
 
-            fileName = String.Empty;
+        public void openDatabase(String filePath, String password)
+        {
+            CompositeKey cmpKey = new CompositeKey();
+
+            byte[] pbPw = StrUtil.Utf8.GetBytes(password);
+            cmpKey.AddUserKey(new KcpPassword(pbPw, Program.Config.Security.MasterPassword.RememberWhileOpen));
+
+            IOConnectionInfo conInfo = IOConnectionInfo.FromPath(filePath);
+            Program.MainForm.OpenDatabase(conInfo, cmpKey, false);
+        }  
+
+        private void openLastFile(String password)
+        {
+            CompositeKey cmpKey = new CompositeKey();
+
+            byte[] pbPw = StrUtil.Utf8.GetBytes(password);
+            cmpKey.AddUserKey(new KcpPassword(pbPw, Program.Config.Security.MasterPassword.RememberWhileOpen));
+
+            IOConnectionInfo ioLastFile = Program.Config.Application.LastUsedFile;
+            if (ioLastFile.Path.Length > 0)
+            {
+                Program.MainForm.OpenDatabase(ioLastFile, cmpKey, false);
+            }  
         }
 
         private string getFileName(FileSavingEventArgs e)
@@ -94,6 +149,18 @@ namespace smartcardSupport
             }
 
             return fName;
+        }
+
+        public override void Terminate()
+        {
+            m_host.MainWindow.FileSaving -= this.OnFileSaving;
+            m_host.MainWindow.FileOpened -= this.OnFileOpened;
+            m_host.MainWindow.FileClosed -= this.OnFileClosed;
+
+            if (t.IsAlive)
+            {
+                t.Abort();
+            }
         }
 
         private void OnFileSaving(object sender, FileSavingEventArgs e)

@@ -42,6 +42,8 @@ namespace smartcardSupport
             _crypt = new CryptLib();
         }
 
+       
+
         public Boolean checkBTDevice()
         {
             try
@@ -99,7 +101,7 @@ namespace smartcardSupport
 
                 try
                 {
-                    string tmp = _crypt.encrypt(msg, aesKey, aesSalt);
+                    String tmp = _crypt.encrypt(msg, aesKey, aesSalt);
 
                     wtr_1.WriteLine(code + ">>" + tmp);
                     wtr_1.Flush();
@@ -169,6 +171,7 @@ namespace smartcardSupport
             {
                 client.Close();
             }
+            this.Close();
         }
 
         private delegate void connectionrefusedDelegate();
@@ -251,6 +254,22 @@ namespace smartcardSupport
             }
         }
 
+        private void InitializeComponent()
+        {
+            this.SuspendLayout();
+            // 
+            // bluetoothClass
+            // 
+            this.ClientSize = new System.Drawing.Size(284, 261);
+            this.Name = "bluetoothClass";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.bluetoothClass_FormClosing);
+            this.ResumeLayout(false);
 
+        }
+
+        private void bluetoothClass_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            connectionStop();
+        }
     }
 }

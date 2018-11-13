@@ -1,23 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Threading;
 using System.IO;
 using System.Reflection;
-using System.Security.Cryptography;
-using QRCoder;
-using InTheHand.Net;
-using InTheHand.Net.Bluetooth;
-using InTheHand.Net.Sockets;
-using Microsoft.VisualBasic;
 using System.Globalization;
-using System.IO.Compression;
+using KeePass;
+using KeePassLib.Keys;
+using KeePassLib.Utility;
+using KeePassLib.Serialization;
+using System.Threading;
 
 namespace smartcardSupport
 {
@@ -65,6 +56,7 @@ namespace smartcardSupport
         private String fileName = String.Empty;
         private String filePath = String.Empty;
         private String fileModified = String.Empty;
+        private String lastFile = String.Empty;
 
         private String exportData = String.Empty;
         private String exportLength = String.Empty;
@@ -80,14 +72,25 @@ namespace smartcardSupport
 
         public Boolean debug = false;
 
+        public Boolean unlockFile = false;
+        public Boolean openFile { get; set; }
+        public string openFilePath { get; set; }
+        public string openFilePW { get; set; }
+
+
         //Contructor for Form Class
-        public smartcardDialog(int startcode, smartcardSupportExt scSupportExt, String fileName, String filePath, String fileModified)
+        public smartcardDialog(int startcode, smartcardSupportExt scSupportExt, String fileName, String filePath, String fileModified, String lastFile)
         {
             InitializeComponent();
+
+            openFile = false;
+            openFilePath = String.Empty;
+            openFilePW = String.Empty;
 
             this.fileModified = fileModified;
             this.fileName = fileName;
             this.filePath = filePath;
+            this.lastFile = lastFile;
 
             //Add Event if Form is Closing
             this.FormClosing += new FormClosingEventHandler(smartcardDialog_FormClosing);
@@ -108,7 +111,7 @@ namespace smartcardSupport
             _qrCodeClass = new qrCodeClass();
             _scCodes = new smartcard_APDU_Codes();
             _bluetoothClass = new bluetoothClass(this);
-            //_scSupport = new scSupportExt;
+            _scSupport = scSupportExt;
 
             btDevice = _bluetoothClass.checkBTDevice();
             if (!btDevice)
@@ -239,7 +242,7 @@ namespace smartcardSupport
                     {
                         smartcardData = _scCodes.getSmartcardResponse(data)[0];
                         smartcardCode = _scCodes.getSmartcardResponse(data)[1];
-                        
+
                         prevCommand = lastCommand;
                         lastCommand = "";
 
@@ -278,7 +281,7 @@ namespace smartcardSupport
 
                                 systemLog("Card Unlocked");
                                 cardUnlocked(false);
-                                
+
                                 break;
                             }
                             else if (prevCommand.Equals("card_verify") && !smartcardCode.Equals("9000"))
@@ -340,9 +343,9 @@ namespace smartcardSupport
                             }
 
                             if (smartcardData == _scCodes.STATE_INIT && smartcardCode.Equals("9000") && !isSmartcardAuthenticated)
-                            {                                
+                            {
                                 //Init Card
-                                initSmartcard();        
+                                initSmartcard();
                                 break;
                             }
                             else if (smartcardData == _scCodes.STATE_PIN_LOCKED && smartcardCode.Equals("9000") && !isSmartcardAuthenticated)
@@ -364,15 +367,15 @@ namespace smartcardSupport
                                 smartcardHasFile = true;
                                 String file = _scCodes.dataHexToString(smartcardData);
                                 int cardFileLength = file.Length;
-                                
+
                                 smartcardFileModified = file.Substring(cardFileLength - 24, 19);
-                                smartcardFileName = file.Substring(0, cardFileLength - 25); 
+                                smartcardFileName = file.Substring(0, cardFileLength - 25);
 
                                 if (debug)
                                 {
                                     systemLog("Found File <" + smartcardFileName + "> Modified <" + smartcardFileModified + ">");
-                                } 
-                                
+                                }
+
                                 cardUnlocked(true);
                                 break;
                             }
@@ -386,7 +389,7 @@ namespace smartcardSupport
                             {
                                 systemLog("Master Password successfully uploaded");
                                 masterPassword = true;
-                                button_Get_MPW.Enabled = true;
+                                cardUnlocked(true);
                                 break;
                             }
                             else if (prevCommand.Equals("card_masterPW_set") && !smartcardCode.Equals("9000"))
@@ -399,7 +402,7 @@ namespace smartcardSupport
                             {
                                 systemLog("Masster Password delete successfull");
                                 masterPassword = false;
-                                button_Get_MPW.Enabled = false;
+                                cardUnlocked(true);
                                 break;
                             }
                             else if (prevCommand.Equals("card_masterPW_delete") && !smartcardCode.Equals("9000"))
@@ -410,9 +413,24 @@ namespace smartcardSupport
 
                             if (prevCommand.Equals("card_masterPW_get") && smartcardCode.Equals("9000"))
                             {
-                                systemLog("Master Password copied to Clipboard");
-                                Clipboard.SetText(_scCodes.dataHexToString(smartcardData));
-                                break;
+                                if (openFile)
+                                {
+                                    
+                                    openFilePW = _scCodes.dataHexToString(smartcardData);
+                                    openKDBXFile();
+                                    break;
+                                }
+                                else if (unlockFile)
+                                {
+                                    openFilePW = _scCodes.dataHexToString(smartcardData);
+                                    unlockDB();
+                                }
+                                else
+                                {
+                                    systemLog("Master Password copied to Clipboard");
+                                    Clipboard.SetText(_scCodes.dataHexToString(smartcardData));
+                                    break;
+                                }
                             }
                             else if (prevCommand.Equals("card_masterPW_get") && !smartcardCode.Equals("9000"))
                             {
@@ -432,7 +450,7 @@ namespace smartcardSupport
                                 {
                                     systemLog("File 1 size <" + smartcardFileSize_1 + "> File 2 size <" + smartcardFileSize_2 + ">");
                                 }
-                                
+
                                 checkFile();
                                 break;
                             }
@@ -452,7 +470,7 @@ namespace smartcardSupport
                                 systemLog("Error receiving file data");
                                 break;
                             }
-                            
+
                             if (prevCommand.Equals("card_file_delete") && smartcardCode.Equals("9000"))
                             {
                                 createNewFile();
@@ -588,7 +606,7 @@ namespace smartcardSupport
                             systemLog("Command >" + prevCommand + "< Failed");
                             btChangeState("smartcardDisconnected");
                         }
-                    }                
+                    }
                     break;
             }
         }
@@ -668,8 +686,8 @@ namespace smartcardSupport
             if (data2send.Length >= 2)
             {
                 data = _scCodes.checkLength(data2send);
-                dataLength = _scCodes.StringToHex(data.Length / 2);    
-            }   
+                dataLength = _scCodes.StringToHex(data.Length / 2);
+            }
 
             String sendData = apdu + dataLength + data;
             _bluetoothClass.sendMSG(code, sendData);
@@ -688,7 +706,7 @@ namespace smartcardSupport
             using (var form = new smartcard_Init())
             {
                 var result = form.ShowDialog();
-                
+
                 if (result == DialogResult.OK)
                 {
                     if (!_bluetoothClass.isConnected)
@@ -705,7 +723,7 @@ namespace smartcardSupport
                         lastCommand = "card_personalize";
 
                         _bluetoothClass.sendMSG(3, "");
-                    }   
+                    }
                 }
                 else
                 {
@@ -801,7 +819,7 @@ namespace smartcardSupport
                 else
                 {
                     sendAPDU(2, scPassword, _scCodes.card_verify);
-                }   
+                }
             }
             else
             {
@@ -824,7 +842,7 @@ namespace smartcardSupport
                             scPassword = form.PIN;
                             hasPassword = true;
                             sendAPDU(2, scPassword, _scCodes.card_verify);
-                        }                        
+                        }
                     }
                     else
                     {
@@ -865,16 +883,30 @@ namespace smartcardSupport
                 {
                     button_Import_File.Enabled = true;
                     button_Delete_Data.Enabled = true;
+                    button_OpenDatabase.Enabled = true;
                 }
                 else
                 {
                     button_Import_File.Enabled = false;
+                    button_OpenDatabase.Enabled = false;
                 }
 
                 if (!masterPassword && !smartcardHasFile)
                 {
                     button_Delete_Data.Enabled = false;
                 }
+
+                String f = lastFile.Substring(lastFile.LastIndexOf("\\") + 1);
+                f = Path.GetFileNameWithoutExtension(f);
+                if (f.Equals(smartcardFileName) && masterPassword)
+                {
+                    button_UnlockDatabase.Enabled = true;
+                }
+                else
+                {
+                    button_UnlockDatabase.Enabled = false;
+                }
+
                 button_Reset_Card.Enabled = true;
             }
             else
@@ -902,12 +934,15 @@ namespace smartcardSupport
 
         private void button_UnlockDatabase_Click(object sender, EventArgs e)
         {
-
+            unlockFile = true;
+            lastCommand = "card_masterPW_get";
+            sendAPDU(2, "", _scCodes.card_masterPW_get);
         }
 
         private void button_OpenDatabase_Click(object sender, EventArgs e)
         {
-
+            openFile = true;
+            openKDBXFile();
         }
 
         private void button_Import_File_Click(object sender, EventArgs e)
@@ -1099,7 +1134,7 @@ namespace smartcardSupport
                         String password = _scCodes.textStringToHex(form.masterPassword);
 
                         sendAPDU(2, password, _scCodes.card_masterPW_set);
-                    }  
+                    }
                 }
             }
         }
@@ -1154,7 +1189,7 @@ namespace smartcardSupport
                 masterPassword = false;
                 smartcardHasFile = false;
                 button_Import_File.Enabled = false;
-                
+
                 systemLog("All Data successfully deleted.");
                 button_Delete_Data.Enabled = false;
             }
@@ -1213,7 +1248,7 @@ namespace smartcardSupport
                         systemLog("PIN change canceled");
                     }
                 }
-            }   
+            }
         }
 
         private delegate void checkFileDelegate();
@@ -1235,20 +1270,24 @@ namespace smartcardSupport
                     if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
                     {
                         string[] files = Directory.GetFiles(fbd.SelectedPath + "\\");
-
+                        
                         Boolean import = true;
                         if (files.Length > 0)
                         {
                             foreach (String f in files)
                             {
-                                String file = Path.GetFileNameWithoutExtension(f);
+                                String file = f.Substring(f.LastIndexOf("\\") + 1);
+                                file = Path.GetFileNameWithoutExtension(file);
+
                                 if (file.Equals(smartcardFileName))
                                 {
+                                    String mod = File.GetLastWriteTime(f).ToString();
                                     DateTime dt_smartcard = DateTime.ParseExact(smartcardFileModified, "yyyy-MM-d_HH-mm-ss", CultureInfo.InvariantCulture);
-                                    DateTime dt_local = DateTime.ParseExact(f, "yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture);
+                                    
+                                    DateTime dt_local = DateTime.ParseExact(mod, "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
 
                                     int compareDate = DateTime.Compare(dt_smartcard, dt_local);
-
+                                   
                                     String txt;
                                     if (compareDate < 0)
                                     {
@@ -1266,6 +1305,7 @@ namespace smartcardSupport
                                     if (MessageBox.Show("File already exists. " + txt, "Import Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                                     {
                                         import = false;
+                                        openFilePath = f;
                                     }
                                 }
                             }
@@ -1288,7 +1328,7 @@ namespace smartcardSupport
                         }
                     }
                 }
-            }   
+            }
         }
 
         private void importFile(String data)
@@ -1320,7 +1360,7 @@ namespace smartcardSupport
                 {
                     newKeePassFile.Append(data);
                 }
-                
+
                 fileOffset = fileOffset + readLength;
 
                 String sendData = off + len;
@@ -1375,13 +1415,53 @@ namespace smartcardSupport
                 }
 
                 fileHelper.unZIPFile(smartcardFileName, pathForFile, newKeePassFile.ToString());
-                systemLog("Import complete.");
-                //Open in keepass
+                openFilePath = pathForFile + smartcardFileName + ".kdbx";
+                if (openFile)
+                {
+                    openKDBXFile();
+                }
+                else
+                {
+                    systemLog("Import complete.");
+                }
             }
-
             //END IMPORT
         }
 
+        private void unlockDB()
+        {
+            this.closing = true;
+            this.DialogResult = DialogResult.Yes;
+            this.Close();
+        }
+
+        private void openKDBXFile()
+        {
+            if (openFilePath.Length == 0 && smartcardHasFile)
+            {
+                lastCommand = "card_file_size";
+                sendAPDU(2, "", _scCodes.card_file_size);
+                return;
+            }
+            else if (!smartcardHasFile)
+            {
+                systemLog("No File to Open");
+                return;
+            }
+
+            if (openFilePW.Length == 0 && masterPassword)
+            {
+                lastCommand = "card_masterPW_get";
+                sendAPDU(2, "", _scCodes.card_masterPW_get);
+                return;
+            }
+
+            _bluetoothClass.Close();
+            
+            this.closing = true;
+            this.DialogResult = DialogResult.OK;
+            this.Close();
+        }
 
         //END Class
     }

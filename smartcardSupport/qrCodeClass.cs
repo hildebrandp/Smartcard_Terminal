@@ -57,7 +57,7 @@ namespace smartcardSupport
         {
             password = genRandomPassword();
             iv = CryptLib.GenerateRandomIV(16); //16 bytes = 128 bits
-            key = CryptLib.getHashSha256(password, 31); //32 bytes = 256 bits
+            key = CryptLib.getHashSha256(password, 32); //32 bytes = 256 bits
 
             pin = rnd.Next(10000000, 100000000);
 
