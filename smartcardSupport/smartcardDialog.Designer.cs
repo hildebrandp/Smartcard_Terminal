@@ -77,7 +77,6 @@
             // 
             // pictureBoxBluetoothEnable
             // 
-            this.pictureBoxBluetoothEnable.Image = global::smartcardSupport.Properties.Resources.Apps_Bluetooth_Inactive_icon;
             this.pictureBoxBluetoothEnable.Location = new System.Drawing.Point(923, 30);
             this.pictureBoxBluetoothEnable.Name = "pictureBoxBluetoothEnable";
             this.pictureBoxBluetoothEnable.Size = new System.Drawing.Size(100, 100);

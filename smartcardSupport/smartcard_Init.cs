@@ -18,6 +18,7 @@ namespace smartcardSupport
         public smartcard_Init()
         {
             InitializeComponent();
+            this.Text = "Personalize Smartcard";
 
             in_pin_1.UseSystemPasswordChar = true;
             in_pin_2.UseSystemPasswordChar = true;

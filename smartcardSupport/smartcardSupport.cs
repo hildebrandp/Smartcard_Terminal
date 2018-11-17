@@ -91,6 +91,11 @@ namespace smartcardSupport
             }
         }
 
+        public Boolean checkUnsavedEntries()
+        {
+            return m_host.Database.Modified;
+        }
+
         public void openDatabase(String filePath)
         {
             IOConnectionInfo conInfo = IOConnectionInfo.FromPath(filePath);

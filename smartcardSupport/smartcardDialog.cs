@@ -113,6 +113,14 @@ namespace smartcardSupport
             _bluetoothClass = new bluetoothClass(this);
             _scSupport = scSupportExt;
 
+            if (_scSupport.checkUnsavedEntries())
+            {
+                if (MessageBox.Show("Database has unsaved changes. Save changes (Yes) or continue without saving (No)?", "Export Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                {
+                    this.Close();
+                }
+            }
+            
             btDevice = _bluetoothClass.checkBTDevice();
             if (!btDevice)
             {
@@ -413,8 +421,7 @@ namespace smartcardSupport
                             if (prevCommand.Equals("card_masterPW_get") && smartcardCode.Equals("9000"))
                             {
                                 if (openFile)
-                                {
-                                    
+                                {     
                                     openFilePW = _scCodes.dataHexToString(smartcardData);
                                     openKDBXFile();
                                     break;
@@ -881,6 +888,10 @@ namespace smartcardSupport
 
                 if (smartcardHasFile)
                 {
+                    DateTime dt_smartcard = DateTime.ParseExact(smartcardFileModified, "yyyy-MM-d_HH-mm-ss", CultureInfo.InvariantCulture);
+
+                    systemLog("File last modiefied: " + dt_smartcard.ToString("g", CultureInfo.CreateSpecificCulture("de-DE")));
+                    systemLog("File on Smartcard: " + smartcardFileName + ".kdbx");
                     button_Import_File.Enabled = true;
                     button_Delete_Data.Enabled = true;
                     button_OpenDatabase.Enabled = true;
@@ -983,6 +994,13 @@ namespace smartcardSupport
                     }
 
                     if (MessageBox.Show("File already exists. " + txt, "Export Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                    {
+                        import = false;
+                    }
+                }
+                else
+                {
+                    if (MessageBox.Show("File " + smartcardFileName + ".kdbx already on Smartcard, override?", "Export Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                     {
                         import = false;
                     }

@@ -61,7 +61,7 @@
             // 
             this.textBoxMasterPassword.Font = new System.Drawing.Font("Microsoft Sans Serif", 20.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.textBoxMasterPassword.Location = new System.Drawing.Point(12, 94);
-            this.textBoxMasterPassword.MaxLength = 16;
+            this.textBoxMasterPassword.MaxLength = 40;
             this.textBoxMasterPassword.Name = "textBoxMasterPassword";
             this.textBoxMasterPassword.Size = new System.Drawing.Size(526, 38);
             this.textBoxMasterPassword.TabIndex = 5;
