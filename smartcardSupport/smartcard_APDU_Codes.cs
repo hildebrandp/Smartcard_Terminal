@@ -32,7 +32,7 @@ namespace smartcardSupport
         /// send : card_pin_reset + LC (data length) + data (PUK + new Pin)
         /// get  : SW1,SW2 (9000)
         /// </summary>
-        public String card_pin_reset = "80230120";
+        public String card_pin_reset = "80230102";
         /// <summary>
         /// send : card_masterPW_set + LC (data length) + data (Master Password)
         /// get  : SW1,SW2 (9000)

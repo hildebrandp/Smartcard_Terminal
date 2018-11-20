@@ -69,14 +69,14 @@ namespace smartcardSupport
         private Boolean readFile_2 = true;
         private Boolean dataleft = true;
         private String pathForFile = String.Empty;
-
-        public Boolean debug = false;
+        private String tmpPUK = String.Empty;
 
         public Boolean unlockFile = false;
         public Boolean openFile { get; set; }
         public string openFilePath { get; set; }
         public string openFilePW { get; set; }
 
+        public Boolean debug = false;
 
         //Contructor for Form Class
         public smartcardDialog(int startcode, smartcardSupportExt scSupportExt, String fileName, String filePath, String fileModified, String lastFile)
@@ -306,7 +306,7 @@ namespace smartcardSupport
                                     case "63C0":
                                         systemLog("Password wrong! 0 Tries remaining.");
                                         systemLog("PIN is Locked. Use PUK to unlock.");
-                                        pinIsBlocked();
+                                        pinIsBlocked(false);
                                         break;
                                 }
                                 break;
@@ -326,8 +326,14 @@ namespace smartcardSupport
 
                             if (prevCommand.Equals("pin_locked") && smartcardCode.Equals("9000"))
                             {
-                                verifyPIN(true);
+                                systemLog("PIN successfully reset");
+                                verifyPIN(true);  
                                 break;
+                            }
+                            else if (prevCommand.Equals("pin_locked") && smartcardCode.Equals("9090"))
+                            {
+                                pinIsBlocked(true);
+                                return;
                             }
                             else if (prevCommand.Equals("pin_locked") && !smartcardCode.Equals("9000"))
                             {
@@ -335,11 +341,11 @@ namespace smartcardSupport
                                 {
                                     case "63C2":
                                         systemLog("PUK wrong! 2 Tries remaining.");
-                                        pinIsBlocked();
+                                        pinIsBlocked(false);
                                         break;
                                     case "63C1":
                                         systemLog("PUK wrong! 1 Tries remaining.");
-                                        pinIsBlocked();
+                                        pinIsBlocked(false);
                                         break;
                                     case "63C0":
                                         systemLog("PUK wrong! 0 Tries remaining.");
@@ -347,7 +353,7 @@ namespace smartcardSupport
                                         break;
                                 }
                                 break;
-                            }
+                            }                          
 
                             if (smartcardData == _scCodes.STATE_INIT && smartcardCode.Equals("9000") && !isSmartcardAuthenticated)
                             {
@@ -359,7 +365,7 @@ namespace smartcardSupport
                             {
                                 //PIN is locked
                                 btChangeState("scAppletPINBlocked");
-                                pinIsBlocked();
+                                pinIsBlocked(false);
                                 break;
                             }
                             else if ((smartcardData == _scCodes.STATE_SECURE_DATA || smartcardData == _scCodes.STATE_SECURE_NO_DATA) && smartcardCode.Equals("9000") && !isSmartcardAuthenticated)
@@ -531,7 +537,7 @@ namespace smartcardSupport
                                     case "63C0":
                                         systemLog("Password wrong! 0 Tries remaining.");
                                         systemLog("PIN is Locked. Use PUK to unlock.");
-                                        pinIsBlocked();
+                                        pinIsBlocked(false);
                                         break;
                                 }
                                 systemLog("Error deleting data");
@@ -686,6 +692,21 @@ namespace smartcardSupport
             }
         }
 
+        private void sendAPDU(int code, String data2send, String apdu, Boolean noConvert)
+        {
+            String dataLength = "";
+            String data = "";
+            if (noConvert)
+            {
+                data = data2send;
+                dataLength = _scCodes.StringToHex(data.Length / 2);
+            }
+            
+            String sendData = apdu + dataLength + data;
+            systemLog("Data: " + sendData);
+            _bluetoothClass.sendMSG(code, sendData);
+        }
+
         private void sendAPDU(int code, String data2send, String apdu)
         {
             String dataLength = "";
@@ -775,39 +796,46 @@ namespace smartcardSupport
             verifyPIN(true);
         }
 
-        private void pinIsBlocked()
+        private void pinIsBlocked(Boolean correctPUK)
         {
-            using (var form = new smartcard_pukInput())
+            if (!correctPUK)
             {
-                var result = form.ShowDialog();
-
-                if (result == DialogResult.OK)
+                using (var form = new smartcard_pukInput())
                 {
-                    using (var form2 = new smartcard_Init())
+                    var result = form.ShowDialog();
+                    if (result == DialogResult.OK)
                     {
-                        var result2 = form2.ShowDialog();
+                        tmpPUK = form.puk;
                         lastCommand = "pin_locked";
-
-                        if (result2 == DialogResult.OK)
-                        {
-                            scPassword = form2.pin;
-
-                            String dataToSend = form.puk + form2.pin;
-                            sendAPDU(2, dataToSend, _scCodes.card_reset);
-                        }
-                        else
-                        {
-                            systemLog("Personalization canceled");
-                        }
-                        form.Close();
+                        sendAPDU(2, tmpPUK, _scCodes.card_pin_reset, true);
                     }
+                    else
+                    {
+                        systemLog("PUK input canceled");
+                    }
+                    form.Close();
                 }
-                else
-                {
-                    systemLog("PUK input canceled");
-                }
-                form.Close();
             }
+            else
+            {
+                using (var form2 = new smartcard_Init())
+                {
+                    var result2 = form2.ShowDialog();
+
+                    if (result2 == DialogResult.OK)
+                    {
+                        scPassword = form2.pin;
+                        lastCommand = "pin_locked";
+                        String dataToSend = tmpPUK + form2.pin;
+                        sendAPDU(2, dataToSend, _scCodes.card_pin_reset, true);
+                    }
+                    else
+                    {
+                        systemLog("Personalization canceled");
+                    }
+                    form2.Close();
+                }
+            }  
         }
 
         private void verifyPIN(Boolean hasPassword)
@@ -932,14 +960,6 @@ namespace smartcardSupport
                 {
                     cardUnlocked(true);
                 }
-            }
-        }
-
-        public void databaseSaved(String filePath)
-        {
-            if (MessageBox.Show("Database Saved", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information) == DialogResult.OK)
-            {
-                //Do some stuff
             }
         }
 
@@ -1320,10 +1340,15 @@ namespace smartcardSupport
                                         txt = "File on Smartcard is newer. Continue?";
                                     }
 
+                                    openFilePath = f;
+
                                     if (MessageBox.Show("File already exists. " + txt, "Import Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                                     {
                                         import = false;
-                                        openFilePath = f;
+                                        if (compareDate == 0)
+                                        {
+                                            openKDBXFile();
+                                        }
                                     }
                                 }
                             }

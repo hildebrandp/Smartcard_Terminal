@@ -26,6 +26,8 @@ namespace smartcardSupport
         private String fileName = String.Empty;
         private String filePath = String.Empty;
         private String fileModified = String.Empty;
+
+        private String openPath = String.Empty;
         Thread t;
 
         public override bool Initialize(IPluginHost host)
@@ -73,7 +75,8 @@ namespace smartcardSupport
                     {
                         if (path != null)
                         {
-                            if (pw != null)
+                            openPath = path;
+                            if (!pw.Equals(String.Empty))
                             {
                                 openDatabase(path, pw);
                             }
@@ -124,7 +127,7 @@ namespace smartcardSupport
             if (ioLastFile.Path.Length > 0)
             {
                 Program.MainForm.OpenDatabase(ioLastFile, cmpKey, false);
-            }  
+            }
         }
 
         private string getFileName(FileSavingEventArgs e)
@@ -168,7 +171,13 @@ namespace smartcardSupport
 
         private void OnFileClosed(object sender, FileClosedEventArgs e)
         {
-
+            if (openPath.Equals(e.IOConnectionInfo.Path))
+            {
+                if (MessageBox.Show("Delete Database?", "Database closed", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                {
+                    File.Delete(openPath);
+                }
+            }
         }
 
         private void OnFileOpened(object sender, FileOpenedEventArgs e)

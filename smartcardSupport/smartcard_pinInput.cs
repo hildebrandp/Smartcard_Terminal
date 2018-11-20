@@ -87,7 +87,10 @@ namespace smartcardSupport
 
         private void buttonDelete_Click(object sender, EventArgs e)
         {
-            inputPIN.Text = inputPIN.Text.Substring(0, inputPIN.Text.Length - 1);
+            if (inputPIN.Text.Length > 0)
+            {
+                inputPIN.Text = inputPIN.Text.Substring(0, inputPIN.Text.Length - 1);
+            } 
         }
 
         private void buttonCancel_Click(object sender, EventArgs e)
