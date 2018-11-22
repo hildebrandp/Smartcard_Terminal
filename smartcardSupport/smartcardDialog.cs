@@ -4,11 +4,7 @@ using System.Windows.Forms;
 using System.IO;
 using System.Reflection;
 using System.Globalization;
-using KeePass;
-using KeePassLib.Keys;
-using KeePassLib.Utility;
-using KeePassLib.Serialization;
-using System.Threading;
+using System.Diagnostics;
 
 namespace smartcardSupport
 {
@@ -67,7 +63,6 @@ namespace smartcardSupport
         private int readLength = 250;
         private Boolean readFile_1 = true;
         private Boolean readFile_2 = true;
-        private Boolean dataleft = true;
         private String pathForFile = String.Empty;
         private String tmpPUK = String.Empty;
 
@@ -77,6 +72,7 @@ namespace smartcardSupport
         public string openFilePW { get; set; }
 
         public Boolean debug = false;
+        Stopwatch sw = new Stopwatch();
 
         //Contructor for Form Class
         public smartcardDialog(int startcode, smartcardSupportExt scSupportExt, String fileName, String filePath, String fileModified, String lastFile)
@@ -192,9 +188,17 @@ namespace smartcardSupport
             }
             else
             {
-                String logTime = DateTime.Now.ToString("HH:mm:ss", System.Globalization.DateTimeFormatInfo.InvariantInfo);
+                String logTime = DateTime.Now.ToString("HH:mm:ss", DateTimeFormatInfo.InvariantInfo);
                 listBoxSystemLog.Items.Insert(0, logTime + " >> " + message);
             }
+        }
+
+        public void updateSystemLog(String txt, double percent)
+        {
+            listBoxSystemLog.Items.RemoveAt(0);
+            String logTime = DateTime.Now.ToString("HH:mm:ss", DateTimeFormatInfo.InvariantInfo);
+            String per = (percent * 100).ToString("00.00");
+            listBoxSystemLog.Items.Insert(0, logTime + " >> " + txt + " " + per + " %");
         }
 
         public void receiveMessage(int code, String data)
@@ -978,12 +982,16 @@ namespace smartcardSupport
 
         private void button_Import_File_Click(object sender, EventArgs e)
         {
+            sw.Reset();
+            sw.Start();
             lastCommand = "card_file_size";
             sendAPDU(2, "", _scCodes.card_file_size);
         }
 
         private void button_Export_File_Click(object sender, EventArgs e)
         {
+            sw.Reset();
+            sw.Start();
             exportData = fileHelper.ZIPFile(fileName, filePath, fileModified);
             fileOffset = 0;
             readLength = 250;
@@ -1016,6 +1024,7 @@ namespace smartcardSupport
                     if (MessageBox.Show("File already exists. " + txt, "Export Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                     {
                         import = false;
+                        return;
                     }
                 }
                 else
@@ -1023,6 +1032,7 @@ namespace smartcardSupport
                     if (MessageBox.Show("File " + smartcardFileName + ".kdbx already on Smartcard, override?", "Export Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                     {
                         import = false;
+                        return;
                     }
                 }
 
@@ -1039,10 +1049,10 @@ namespace smartcardSupport
         private void createNewFile()
         {
             int len = exportData.Length / 2;
-
-            if (len > 50000)
+            systemLog("len: " + len);
+            if (len > 60000)
             {
-                MessageBox.Show("File is too big. Maximum size is 50KB.", "Export Warning", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("File is too big. Maximum size is 60KB.", "Export Warning", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             else
             {
@@ -1091,7 +1101,7 @@ namespace smartcardSupport
         private void uploadFileToSC()
         {
             String tmpSend;
-
+            String off = String.Empty;
             if (readFile_1 && fileOffset != file_1_size)
             {
                 if ((fileOffset + readLength) > file_1_size)
@@ -1099,7 +1109,7 @@ namespace smartcardSupport
                     readLength = file_1_size - fileOffset;
                 }
 
-                String off = _scCodes.StringToHex(fileOffset);
+                off = _scCodes.StringToHex(fileOffset);
                 if (off.Length == 2)
                 {
                     off = "00" + off;
@@ -1109,6 +1119,10 @@ namespace smartcardSupport
                 fileOffset += readLength;
 
                 lastCommand = "card_file_write";
+
+                double per = (double)(fileOffset * 2) / (double)exportData.Length;
+                updateSystemLog("Export:", per);
+
                 sendAPDU(2, tmpSend, _scCodes.card_file_write + "01");
                 return;
             }
@@ -1116,31 +1130,38 @@ namespace smartcardSupport
             {
                 readFile_1 = false;
                 readLength = 250;
+                fileOffset = 0;
+                off = String.Empty;
             }
 
 
 
-            if (readFile_2 && fileOffset != (file_2_size + 30000) && !readFile_1)
+            if (readFile_2 && fileOffset != file_2_size && !readFile_1)
             {
-                if ((fileOffset + readLength) > (file_2_size + 30000))
+                if ((fileOffset + readLength) > file_2_size)
                 {
                     readLength = file_2_size - fileOffset;
                 }
 
-                String off = _scCodes.StringToHex(fileOffset);
+                off = _scCodes.StringToHex(fileOffset);
                 if (off.Length == 2)
                 {
                     off = "00" + off;
                 }
+                systemLog("Write: " + (60000 + (fileOffset * 2)) + "with: " + (readLength * 2));
+                tmpSend = off + exportData.Substring((60000 + (fileOffset * 2)), (readLength * 2));
 
-                tmpSend = off + exportData.Substring(fileOffset * 2, readLength * 2);
-                fileOffset = fileOffset + readLength;
+                fileOffset += readLength;
 
                 lastCommand = "card_file_write";
+
+                double per = (double)(60000 + (fileOffset * 2)) / (double)exportData.Length;
+                updateSystemLog("Export:", per);
+
                 sendAPDU(2, tmpSend, _scCodes.card_file_write + "02");
                 return;
             }
-            else if (readFile_2 && fileOffset == (file_2_size + 30000) && !readFile_1)
+            else if (readFile_2 && fileOffset == file_2_size && !readFile_1)
             {
                 readFile_2 = false;
             }
@@ -1148,7 +1169,10 @@ namespace smartcardSupport
             if (!readFile_1 && !readFile_2)
             {
                 button_Delete_Data.Enabled = true;
+                sw.Stop();
                 systemLog("File export complete");
+                double time = sw.Elapsed.TotalSeconds;
+                systemLog("Time: " + time.ToString("0.##") + " s || Data: " + exportData.Length / 2 + " B || Speed: " + ((exportData.Length / 2) / time).ToString("0.##") + " B/s");
             }
         }
 
@@ -1227,6 +1251,8 @@ namespace smartcardSupport
                 masterPassword = false;
                 smartcardHasFile = false;
                 button_Import_File.Enabled = false;
+                button_OpenDatabase.Enabled = false;
+                button_UnlockDatabase.Enabled = false;
 
                 systemLog("All Data successfully deleted.");
                 button_Delete_Data.Enabled = false;
@@ -1406,12 +1432,19 @@ namespace smartcardSupport
 
                 fileOffset = fileOffset + readLength;
 
+                double per = (double)fileOffset / (double)(smartcardFileSize_1 + smartcardFileSize_2);
+                updateSystemLog("Import:", per);
+
+
                 String sendData = off + len;
                 sendAPDU(2, sendData, _scCodes.card_file_read + "01");
             }
             else if (fileOffset == smartcardFileSize_1 && readFile_1)
             {
-                newKeePassFile.Append(data);
+                if (!readFile_2)
+                {
+                    newKeePassFile.Append(data);
+                }
                 readFile_1 = false;
                 fileOffset = 0;
                 readLength = 250;
@@ -1419,7 +1452,7 @@ namespace smartcardSupport
 
             if (fileOffset != smartcardFileSize_2 && readFile_2 && !readFile_1)
             {
-                if ((fileOffset + 250) > smartcardFileSize_2)
+                if ((fileOffset + readLength) > smartcardFileSize_2)
                 {
                     readLength = smartcardFileSize_2 - fileOffset;
                 }
@@ -1439,6 +1472,9 @@ namespace smartcardSupport
                 newKeePassFile.Append(data);
                 fileOffset = fileOffset + readLength;
 
+                double per = (double)(30000 + fileOffset) / (double)(smartcardFileSize_1 + smartcardFileSize_2);
+                updateSystemLog("Import:", per);
+
                 String sendData = off + len;
                 sendAPDU(2, sendData, _scCodes.card_file_read + "02");
             }
@@ -1457,6 +1493,7 @@ namespace smartcardSupport
                     systemLog("Import complete. Read: " + newKeePassFile.Length);
                 }
 
+                systemLog("Unzipping...");
                 fileHelper.unZIPFile(smartcardFileName, pathForFile, newKeePassFile.ToString());
                 openFilePath = pathForFile + smartcardFileName + ".kdbx";
                 if (openFile)
@@ -1466,6 +1503,9 @@ namespace smartcardSupport
                 else
                 {
                     systemLog("Import complete.");
+                    sw.Stop();
+                    double time = sw.Elapsed.TotalSeconds;
+                    systemLog("Time: " + time.ToString("0.##") + " s || Data: " + (smartcardFileSize_1 + smartcardFileSize_2) + " B || Speed: " + ((smartcardFileSize_1 + smartcardFileSize_2) / time).ToString("0.##") + " B/s");
                 }
             }
             //END IMPORT
