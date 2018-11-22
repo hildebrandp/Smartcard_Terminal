@@ -72,8 +72,8 @@ namespace smartcardSupport
         public string openFilePW { get; set; }
 
         public Boolean debug = false;
-        Stopwatch sw = new Stopwatch();
-
+        Stopwatch sw1 = new Stopwatch();
+        Stopwatch sw2 = new Stopwatch();
         //Contructor for Form Class
         public smartcardDialog(int startcode, smartcardSupportExt scSupportExt, String fileName, String filePath, String fileModified, String lastFile)
         {
@@ -501,6 +501,8 @@ namespace smartcardSupport
                             if (prevCommand.Equals("card_file_create") && smartcardCode.Equals("9000"))
                             {
                                 systemLog("Uploading File to Smartcard Please wait.");
+                                sw2.Reset();
+                                sw2.Start();
                                 uploadFileToSC();
                                 break;
                             }
@@ -982,16 +984,16 @@ namespace smartcardSupport
 
         private void button_Import_File_Click(object sender, EventArgs e)
         {
-            sw.Reset();
-            sw.Start();
+            sw1.Reset();
+            sw1.Start();
             lastCommand = "card_file_size";
             sendAPDU(2, "", _scCodes.card_file_size);
         }
 
         private void button_Export_File_Click(object sender, EventArgs e)
         {
-            sw.Reset();
-            sw.Start();
+            sw1.Reset();
+            sw1.Start();
             exportData = fileHelper.ZIPFile(fileName, filePath, fileModified);
             fileOffset = 0;
             readLength = 250;
@@ -1049,7 +1051,6 @@ namespace smartcardSupport
         private void createNewFile()
         {
             int len = exportData.Length / 2;
-            systemLog("len: " + len);
             if (len > 60000)
             {
                 MessageBox.Show("File is too big. Maximum size is 60KB.", "Export Warning", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -1102,6 +1103,7 @@ namespace smartcardSupport
         {
             String tmpSend;
             String off = String.Empty;
+            // Export File 1
             if (readFile_1 && fileOffset != file_1_size)
             {
                 if ((fileOffset + readLength) > file_1_size)
@@ -1134,8 +1136,7 @@ namespace smartcardSupport
                 off = String.Empty;
             }
 
-
-
+            // Export File 2
             if (readFile_2 && fileOffset != file_2_size && !readFile_1)
             {
                 if ((fileOffset + readLength) > file_2_size)
@@ -1166,13 +1167,21 @@ namespace smartcardSupport
                 readFile_2 = false;
             }
 
+            // Export Finish
             if (!readFile_1 && !readFile_2)
             {
-                button_Delete_Data.Enabled = true;
-                sw.Stop();
+                smartcardFileName = fileName;
+                smartcardFileModified = fileModified;
+                smartcardState = _scCodes.STATE_SECURE_DATA;
+                button_Import_File.Enabled = true;
+                button_OpenDatabase.Enabled = true;
+
+                sw1.Stop();
+                sw2.Stop();
                 systemLog("File export complete");
-                double time = sw.Elapsed.TotalSeconds;
-                systemLog("Time: " + time.ToString("0.##") + " s || Data: " + exportData.Length / 2 + " B || Speed: " + ((exportData.Length / 2) / time).ToString("0.##") + " B/s");
+                double time = sw1.Elapsed.TotalSeconds;
+                double time2 = sw2.Elapsed.TotalSeconds;
+                systemLog("Time: " + time.ToString("0.##") + " s || Data: " + exportData.Length / 2 + " B || Speed: " + ((exportData.Length / 2) / time2).ToString("0.##") + " B/s");
             }
         }
 
@@ -1253,9 +1262,18 @@ namespace smartcardSupport
                 button_Import_File.Enabled = false;
                 button_OpenDatabase.Enabled = false;
                 button_UnlockDatabase.Enabled = false;
-
+                openFile = false;
+                unlockFile = false;
+                openFilePath = String.Empty;
+                openFilePW = String.Empty;
+                smartcardFileName = String.Empty;
+                smartcardFileModified = String.Empty;
+                smartcardState = _scCodes.STATE_SECURE_NO_DATA;
                 systemLog("All Data successfully deleted.");
                 button_Delete_Data.Enabled = false;
+                button_UnlockDatabase.Enabled = false;
+                button_Import_File.Enabled = false;
+                button_Get_MPW.Enabled = false;
             }
             else
             {
@@ -1393,6 +1411,8 @@ namespace smartcardSupport
                             fileOffset = 0;
                             readLength = 250;
                             systemLog("Importing file, please wait!");
+                            sw2.Reset();
+                            sw2.Start();
                             importFile("");
                         }
                     }
@@ -1404,6 +1424,7 @@ namespace smartcardSupport
         {
             lastCommand = "card_file_read";
 
+            // Import File 1
             if (fileOffset != smartcardFileSize_1 && readFile_1)
             {
                 readLength = 250;
@@ -1450,6 +1471,7 @@ namespace smartcardSupport
                 readLength = 250;
             }
 
+            // Import File 2
             if (fileOffset != smartcardFileSize_2 && readFile_2 && !readFile_1)
             {
                 if ((fileOffset + readLength) > smartcardFileSize_2)
@@ -1484,8 +1506,10 @@ namespace smartcardSupport
                 readFile_2 = false;
             }
 
+            // Import Finish
             if (!readFile_1 && !readFile_2)
             {
+                sw2.Stop();
                 if (debug)
                 {
                     systemLog("File 1 size: " + smartcardFileSize_1);
@@ -1503,9 +1527,10 @@ namespace smartcardSupport
                 else
                 {
                     systemLog("Import complete.");
-                    sw.Stop();
-                    double time = sw.Elapsed.TotalSeconds;
-                    systemLog("Time: " + time.ToString("0.##") + " s || Data: " + (smartcardFileSize_1 + smartcardFileSize_2) + " B || Speed: " + ((smartcardFileSize_1 + smartcardFileSize_2) / time).ToString("0.##") + " B/s");
+                    sw1.Stop();
+                    double time = sw1.Elapsed.TotalSeconds;
+                    double time2 = sw2.Elapsed.TotalSeconds;
+                    systemLog("Time: " + time.ToString("0.##") + " s || Data: " + (smartcardFileSize_1 + smartcardFileSize_2) + " B || Speed: " + ((smartcardFileSize_1 + smartcardFileSize_2) / time2).ToString("0.##") + " B/s");
                 }
             }
             //END IMPORT
