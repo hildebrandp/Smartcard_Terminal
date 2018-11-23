@@ -1510,15 +1510,21 @@ namespace smartcardSupport
             if (!readFile_1 && !readFile_2)
             {
                 sw2.Stop();
+                Stopwatch sw3 = new Stopwatch();
+                sw3.Start();
+
+                systemLog("Unzipping...");
+                fileHelper.unZIPFile(smartcardFileName, pathForFile, newKeePassFile.ToString());
+                sw3.Stop();
+
                 if (debug)
                 {
                     systemLog("File 1 size: " + smartcardFileSize_1);
                     systemLog("File 2 size: " + smartcardFileSize_2);
                     systemLog("Import complete. Read: " + newKeePassFile.Length);
+                    systemLog("Unzip: " + sw3.ElapsedMilliseconds);
                 }
-
-                systemLog("Unzipping...");
-                fileHelper.unZIPFile(smartcardFileName, pathForFile, newKeePassFile.ToString());
+                
                 openFilePath = pathForFile + smartcardFileName + ".kdbx";
                 if (openFile)
                 {
