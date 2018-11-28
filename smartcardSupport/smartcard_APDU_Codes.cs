@@ -23,26 +23,31 @@ namespace smartcardSupport
         /// get  : data (Master PW State) + SW1,SW2 (9000)
         /// </summary>
         public String card_verify = "80210100";
+        public String card_verify_enc = "80210101";
         /// <summary>
         /// send : card_pin_change + LC (data length) + data (old Pin + new Pin)
         /// get  : SW1,SW2 (9000)
         /// </summary>
         public String card_pin_change = "80220002";
+        public String card_pin_change_enc = "80220001";
         /// <summary>
         /// send : card_pin_reset + LC (data length) + data (PUK + new Pin)
         /// get  : SW1,SW2 (9000)
         /// </summary>
         public String card_pin_reset = "80230102";
+        public String card_pin_reset_enc = "80230101";
         /// <summary>
         /// send : card_masterPW_set + LC (data length) + data (Master Password)
         /// get  : SW1,SW2 (9000)
         /// </summary>
         public String card_masterPW_set = "80300201";
+        public String card_masterPW_set_enc = "80300101";
         /// <summary>
         /// send : card_masterPW_get
         /// get  : data (Master Password) + SW1,SW2 (9000)
         /// </summary>
         public String card_masterPW_get = "80310202";
+        public String card_masterPW_get_enc = "80310102";
         /// <summary>
         /// send : card_masterPW_delete
         /// get  : SW1,SW2 (9000)
@@ -53,6 +58,7 @@ namespace smartcardSupport
         /// get  : SW1,SW2 (9000)
         /// </summary>
         public String card_reset = "80240000";
+        public String card_reset_enc = "80240001";
         /// <summary>
         /// send : card_file_create + LC (data length) + data (filesize 1 + filesize 2 + file name)
         /// get  : SW1,SW2 (9000)

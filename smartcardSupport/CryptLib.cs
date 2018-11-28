@@ -191,6 +191,21 @@ namespace smartcardSupport
                 return hashString.Substring(0, length);
         }
 
+        public static string getHashSha256(byte[] bytes, int length)
+        {
+            SHA256Managed hashstring = new SHA256Managed();
+            byte[] hash = hashstring.ComputeHash(bytes);
+            string hashString = string.Empty;
+            foreach (byte x in hash)
+            {
+                hashString += String.Format("{0:x2}", x); //covert to hex string
+            }
+            if (length > hashString.Length)
+                return hashString;
+            else
+                return hashString.Substring(0, length);
+        }
+
         //this function is no longer used.
         private static string MD5Hash(string text)
         {

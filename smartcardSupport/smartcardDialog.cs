@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Globalization;
 using System.Diagnostics;
+using System.Security.Cryptography;
 
 namespace smartcardSupport
 {
@@ -96,14 +97,6 @@ namespace smartcardSupport
 
             this.Text = "Bluetooth SmartCard Reader Terminal- " + version + "  ||  Database: " + fileName;
 
-            if (debug)
-            {
-                systemLog("File path: " + filePath);
-                systemLog("File name: " + fileName);
-                systemLog("File last Modified: " + fileModified);
-            }
-
-
             _qrCodeClass = new qrCodeClass();
             _scCodes = new smartcard_APDU_Codes();
             _bluetoothClass = new bluetoothClass(this);
@@ -116,7 +109,7 @@ namespace smartcardSupport
                     this.Close();
                 }
             }
-            
+
             btDevice = _bluetoothClass.checkBTDevice();
             if (!btDevice)
             {
@@ -135,6 +128,65 @@ namespace smartcardSupport
                 pin = _qrCodeClass.getPin();
 
                 _bluetoothClass.startBTListener();
+            }
+        }
+
+        private String encryptData(String data, Boolean pad)
+        {
+            String pw = CryptLib.getHashSha256(_scCodes.hexToByteArray(_scCodes.checkLength(scPassword)), 64);
+            RijndaelManaged aesAlg = new RijndaelManaged
+            {
+                Mode = CipherMode.ECB,
+                Padding = PaddingMode.None,
+                KeySize = 256,
+                BlockSize = 128,
+                Key = _scCodes.hexToByteArray(pw),
+            };
+            String paddedData;
+            if (pad)
+            {
+                paddedData = _scCodes.checkLength(scPassword);
+                paddedData = paddedData.PadLeft(32, 'F');
+            } else
+            {
+                paddedData = data;
+            }
+            
+            ICryptoTransform encryptor = aesAlg.CreateEncryptor();
+            var encData = encryptor.TransformFinalBlock(_scCodes.hexToByteArray(paddedData), 0, _scCodes.hexToByteArray(paddedData).Length);
+
+            //systemLog("Data: " + _scCodes.byteToString(encData));
+            return _scCodes.byteToString(encData);
+        }
+
+        private String decryptData(String data)
+        {
+            String pw = CryptLib.getHashSha256(_scCodes.hexToByteArray(_scCodes.checkLength(scPassword)), 64);
+            RijndaelManaged aesAlg = new RijndaelManaged
+            {
+                Mode = CipherMode.ECB,
+                Padding = PaddingMode.None,
+                KeySize = 256,
+                BlockSize = 128,
+                Key = _scCodes.hexToByteArray(pw),
+            };
+            ICryptoTransform decryptor = aesAlg.CreateDecryptor();
+            var decData = decryptor.TransformFinalBlock(_scCodes.hexToByteArray(data), 0, _scCodes.hexToByteArray(data).Length);
+
+            //systemLog("Data: " + _scCodes.byteToString(decData));
+            return _scCodes.byteToString(decData);
+        }
+
+        private delegate void clipboardDelegate(String txt);
+        private void clipboard(String txt)
+        {
+            if (this.InvokeRequired)
+            {
+                this.Invoke(new clipboardDelegate(this.clipboard), txt);
+            }
+            else
+            {
+                Clipboard.SetText(txt);
             }
         }
 
@@ -430,6 +482,12 @@ namespace smartcardSupport
 
                             if (prevCommand.Equals("card_masterPW_get") && smartcardCode.Equals("9000"))
                             {
+                                smartcardData = decryptData(smartcardData);
+
+                                String substr = smartcardData.Substring(0, 2);
+                                int Datalen = int.Parse(substr, NumberStyles.HexNumber);
+                                smartcardData = smartcardData.Substring(smartcardData.Length - Datalen * 2, Datalen * 2);
+
                                 if (openFile)
                                 {     
                                     openFilePW = _scCodes.dataHexToString(smartcardData);
@@ -440,11 +498,12 @@ namespace smartcardSupport
                                 {
                                     openFilePW = _scCodes.dataHexToString(smartcardData);
                                     unlockDB();
+                                    break;
                                 }
                                 else
                                 {
                                     systemLog("Master Password copied to Clipboard");
-                                    Clipboard.SetText(_scCodes.dataHexToString(smartcardData));
+                                    clipboard(_scCodes.dataHexToString(smartcardData));
                                     break;
                                 }
                             }
@@ -709,7 +768,6 @@ namespace smartcardSupport
             }
             
             String sendData = apdu + dataLength + data;
-            systemLog("Data: " + sendData);
             _bluetoothClass.sendMSG(code, sendData);
         }
 
@@ -813,7 +871,7 @@ namespace smartcardSupport
                     {
                         tmpPUK = form.puk;
                         lastCommand = "pin_locked";
-                        sendAPDU(2, tmpPUK, _scCodes.card_pin_reset, true);
+                        sendAPDU(2, encryptData(tmpPUK, true), _scCodes.card_pin_reset_enc, true);
                     }
                     else
                     {
@@ -832,8 +890,8 @@ namespace smartcardSupport
                     {
                         scPassword = form2.pin;
                         lastCommand = "pin_locked";
-                        String dataToSend = tmpPUK + form2.pin;
-                        sendAPDU(2, dataToSend, _scCodes.card_pin_reset, true);
+                        String dataToSend = encryptData(tmpPUK, true) + encryptData(form2.pin, true);
+                        sendAPDU(2, dataToSend, _scCodes.card_pin_reset_enc, true);
                     }
                     else
                     {
@@ -859,7 +917,9 @@ namespace smartcardSupport
                 }
                 else
                 {
-                    sendAPDU(2, scPassword, _scCodes.card_verify);
+                    //sendAPDU(2, scPassword, _scCodes.card_verify);
+ 
+                    sendAPDU(2, encryptData(scPassword, true), _scCodes.card_verify_enc);
                 }
             }
             else
@@ -882,7 +942,8 @@ namespace smartcardSupport
                         {
                             scPassword = form.PIN;
                             hasPassword = true;
-                            sendAPDU(2, scPassword, _scCodes.card_verify);
+                            //sendAPDU(2, scPassword, _scCodes.card_verify);
+                            sendAPDU(2, encryptData(scPassword, true), _scCodes.card_verify_enc);
                         }
                     }
                     else
@@ -1203,8 +1264,11 @@ namespace smartcardSupport
                     {
                         lastCommand = "card_masterPW_set";
                         String password = _scCodes.textStringToHex(form.masterPassword);
+                        String password_Length = _scCodes.StringToHex(password.Length / 2);
+                        password = password.PadLeft(94, '0');
+                        password = password_Length + password;
 
-                        sendAPDU(2, password, _scCodes.card_masterPW_set);
+                        sendAPDU(2, encryptData(password, false), _scCodes.card_masterPW_set_enc, true);
                     }
                 }
             }
@@ -1213,7 +1277,7 @@ namespace smartcardSupport
         private void button_Get_MPW_Click(object sender, EventArgs e)
         {
             lastCommand = "card_masterPW_get";
-            sendAPDU(2, "", _scCodes.card_masterPW_get);
+            sendAPDU(2, "", _scCodes.card_masterPW_get_enc);
         }
 
         private void button_Delete_Data_Click(object sender, EventArgs e)
@@ -1229,7 +1293,8 @@ namespace smartcardSupport
             if (number == 1)
             {
                 lastCommand = "card_delete_1";
-                sendAPDU(2, pin, _scCodes.card_verify);
+                //sendAPDU(2, pin, _scCodes.card_verify);
+                sendAPDU(2, encryptData(pin, true), _scCodes.card_verify_enc);
             }
             else if (number == 2)
             {
@@ -1294,7 +1359,7 @@ namespace smartcardSupport
                     if (result == DialogResult.OK)
                     {
                         lastCommand = "card_reset";
-                        sendAPDU(2, form.puk, _scCodes.card_reset);
+                        sendAPDU(2, encryptData(form.puk, true), _scCodes.card_reset_enc);
                     }
                 }
             }
@@ -1323,7 +1388,9 @@ namespace smartcardSupport
                         }
 
                         scPassword = form.pin;
-                        sendAPDU(2, pwOld + pwNew, _scCodes.card_pin_change);
+                        String oldPW = encryptData(pwOld, true);
+                        String newPW = encryptData(pwNew, true);
+                        sendAPDU(2, oldPW + newPW, _scCodes.card_pin_change_enc);
                     }
                     else
                     {

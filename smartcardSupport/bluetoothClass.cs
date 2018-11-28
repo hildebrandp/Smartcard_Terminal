@@ -42,8 +42,6 @@ namespace smartcardSupport
             _crypt = new CryptLib();
         }
 
-       
-
         public Boolean checkBTDevice()
         {
             try
