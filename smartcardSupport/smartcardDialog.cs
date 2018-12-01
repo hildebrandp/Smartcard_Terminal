@@ -6,31 +6,18 @@ using System.Reflection;
 using System.Globalization;
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Threading;
+using Smartcard_Terminal;
 
 namespace smartcardSupport
 {
-    public partial class smartcardDialog : Form
+    public partial class smartcardDialog : Smartcard_Terminal.Smartcard_Terminal
     {
         private smartcardSupportExt _scSupport;
-        private bluetoothClass _bluetoothClass;
-        private Boolean btDevice;
-        private String btAdress;
-        private String deviceName;
-
-        private qrCodeClass _qrCodeClass;
-        public String iv;
-        public String key;
-        public int pin = 0;
-
         private smartcard_APDU_Codes _scCodes;
 
-        private String barcodeLabel_noBTdevice = "No Bluetooth Device found";
-        private String barcodeLabel_enableBT = "Please Enable Bluetooth";
-        private String barcodeLabel_Connecting = "Bluetooth Connecting";
-        private String barcodeLabel_Connected = "Bluetooth Connected";
-        private String barcodeLabel_SmartcardConnected = "Smartcard Connected";
-        private String barcodeLabel_SmartcardDisconnected = "Smartcard Disconnected";
-
+        private String btAdress;
+        private String deviceName;
         private Boolean closing = false;
 
         private Boolean is_Smartcard_App_Connected = false;
@@ -72,13 +59,19 @@ namespace smartcardSupport
         public string openFilePath { get; set; }
         public string openFilePW { get; set; }
 
+
         public Boolean debug = false;
         Stopwatch sw1 = new Stopwatch();
         Stopwatch sw2 = new Stopwatch();
+
+        private Thread startBTCon;
+
         //Contructor for Form Class
         public smartcardDialog(int startcode, smartcardSupportExt scSupportExt, String fileName, String filePath, String fileModified, String lastFile)
         {
             InitializeComponent();
+
+            newMessagereceived += new newMessageHandler(newMessage);
 
             openFile = false;
             openFilePath = String.Empty;
@@ -97,9 +90,7 @@ namespace smartcardSupport
 
             this.Text = "Bluetooth SmartCard Reader Terminal- " + version + "  ||  Database: " + fileName;
 
-            _qrCodeClass = new qrCodeClass();
             _scCodes = new smartcard_APDU_Codes();
-            _bluetoothClass = new bluetoothClass(this);
             _scSupport = scSupportExt;
 
             if (_scSupport.checkUnsavedEntries())
@@ -110,25 +101,69 @@ namespace smartcardSupport
                 }
             }
 
-            btDevice = _bluetoothClass.checkBTDevice();
-            if (!btDevice)
+            btAdress = Get_BT_Address();
+            if (btAdress == null)
             {
                 msgBoxClose("No Accessible Bluetooth Device! Closing");
             }
             else
             {
-                btAdress = _bluetoothClass.getBluetoothAddress();
                 systemLog("Bluetooth enabled");
                 pictureBoxBluetoothEnable.Image = Properties.Resources.Apps_Bluetooth_Inactive_icon;
                 textBoxConnectedDevice.Text = "";
-                barcodePicture.Image = _qrCodeClass.newQRCode(btAdress);
+                barcodePicture.Image = Gen_QRCode(true, 0);
 
-                iv = _qrCodeClass.getSalt();
-                key = _qrCodeClass.getKey();
-                pin = _qrCodeClass.getPin();
+                if (startBluetoothCon())
+                {
+                    startBTCon = new Thread(startBTListener);
+                    startBTCon.Start();
+                }
+                else
+                {
+                    systemLog("Error starting Bluetooth Device.");
+                }
 
-                _bluetoothClass.startBTListener();
+                
             }
+        }
+
+        private void startBTListener()
+        {
+            if (open_BT_Connection())
+            {
+                BT_Connection(true);
+            }
+            else
+            {
+                BT_Connection(false);
+            }
+        }
+
+        private delegate void BT_ConnectionDelegate(Boolean success);
+        private void BT_Connection(Boolean success)
+        {
+            if (this.InvokeRequired)
+            {
+                this.Invoke(new BT_ConnectionDelegate(this.BT_Connection), success);
+            }
+            else
+            {
+                if (success)
+                {
+                    systemLog("Successfully Connected");
+                    deviceName = Get_BT_Name();
+                    textBoxConnectedDevice.Text = deviceName;
+                }
+                else
+                {
+                    systemLog("Error establishing connection");
+                }
+            }
+        }
+
+        private void newMessage(object a, newMessageEventArgs e)
+        {
+            receiveMessage(e.Code, e.Message);
         }
 
         private String encryptData(String data, Boolean pad)
@@ -211,7 +246,7 @@ namespace smartcardSupport
             {
                 if (MessageBox.Show("Are you sure you want to Exit?", "Confirm", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                 {
-                    _bluetoothClass.connectionStop();
+                    Stop_BT_Connection();
                     return;
                 }
                 else
@@ -221,7 +256,7 @@ namespace smartcardSupport
             }
             else
             {
-                _bluetoothClass.connectionStop();
+                Stop_BT_Connection();
                 return;
             }
 
@@ -253,438 +288,429 @@ namespace smartcardSupport
             listBoxSystemLog.Items.Insert(0, logTime + " >> " + txt + " " + per + " %");
         }
 
+        private delegate void receiveMessageDelegate(int code, String data);
         public void receiveMessage(int code, String data)
-        {
-            switch (code)
+        {      
+            if (this.InvokeRequired)
             {
-                case 0:
-                    if (pin.Equals(Convert.ToInt32(data)))
-                    {
-                        _bluetoothClass.isAuthenticated = true;
-                        systemLog("Successfully connected");
-
-                        btChangeState("connected");
-                        _bluetoothClass.sendMSG(1, "pin_correct");
-                    }
-                    else
-                    {
-                        systemLog("Connection failed");
-                        _bluetoothClass.sendMSG(1, "pin_wrong");
-                        _bluetoothClass.client.Close();
-                        msgBoxClose("Connection Failed! Smartcard Terminal closing.");
-                    }
-                    break;
-                case 1:
-                    if (_bluetoothClass.isAuthenticated)
-                    {
-                        switch (data)
+                this.Invoke(new receiveMessageDelegate(this.receiveMessage), code, data);
+            }
+            else
+            {
+                switch (code)
+                {
+                    case 1:
+                        if (Get_BT_is_Connected())
                         {
-                            case "application_stop":
-                                btChangeState("disconnected");
-                                break;
-                            case "smartcard_discovered":
-                                btChangeState("smartcardDiscovered");
-                                break;
-                            case "smartcard_connection_refused":
-                                systemLog("Smartcard connection refused.");
-                                break;
-                            case "smartcard_connected":
-                                btChangeState("smartcardConnected");
-                                break;
-                            case "smartcard_disconnected":
-                                btChangeState("smartcardDisconnected");
-                                break;
-                            default:
-                                systemLog("Error Receiving Message");
-                                break;
-                        }
-                    }
-                    break;
-                case 2:
-                    if (_bluetoothClass.isAuthenticated)
-                    {
-                        smartcardData = _scCodes.getSmartcardResponse(data)[0];
-                        smartcardCode = _scCodes.getSmartcardResponse(data)[1];
-
-                        prevCommand = lastCommand;
-                        lastCommand = "";
-
-                        if (debug)
-                        {
-                            systemLog("Command >" + prevCommand + "< Data: >" + smartcardData + "< Code: >" + smartcardCode + "<");
-                        }
-
-                        if (!is_Smartcard_App_Connected && prevCommand.Equals("apduSelectApplet") && smartcardCode.Equals("9000"))
-                        {
-                            btChangeState("scAppletConnected");
-                            smartcardState = smartcardData;
-                        }
-
-                        if (is_Smartcard_App_Connected)
-                        {
-                            if (prevCommand.Equals("card_personalize") && smartcardCode.Equals("9000"))
+                            switch (data)
                             {
-                                initSmartcardResponse(smartcardData);
-                                systemLog("Command >" + prevCommand + "< Successful");
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_personalize") && !smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Smartcard Error >" + smartcardCode + "<");
-                            }
-
-                            if (prevCommand.Equals("card_verify") && smartcardCode.Equals("9000"))
-                            {
-                                isSmartcardAuthenticated = true;
-                                // get Master PW State
-                                if (smartcardData.Equals("01"))
-                                {
-                                    masterPassword = true;
-                                }
-
-                                systemLog("Card Unlocked");
-                                cardUnlocked(false);
-
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_verify") && !smartcardCode.Equals("9000"))
-                            {
-                                switch (smartcardCode)
-                                {
-                                    case "63C2":
-                                        systemLog("Password wrong! 2 Tries remaining.");
-                                        verifyPIN(false);
-                                        break;
-                                    case "63C1":
-                                        systemLog("Password wrong! 1 Tries remaining.");
-                                        verifyPIN(false);
-                                        break;
-                                    case "63C0":
-                                        systemLog("Password wrong! 0 Tries remaining.");
-                                        systemLog("PIN is Locked. Use PUK to unlock.");
-                                        pinIsBlocked(false);
-                                        break;
-                                }
-                                break;
-                            }
-
-                            if (prevCommand.Equals("card_pin_change") && smartcardCode.Equals("9000"))
-                            {
-                                systemLog("PIN change successfull");
-
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_pin_change") && !smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Error changing PIN");
-                                break;
-                            }
-
-                            if (prevCommand.Equals("pin_locked") && smartcardCode.Equals("9000"))
-                            {
-                                systemLog("PIN successfully reset");
-                                verifyPIN(true);  
-                                break;
-                            }
-                            else if (prevCommand.Equals("pin_locked") && smartcardCode.Equals("9090"))
-                            {
-                                pinIsBlocked(true);
-                                return;
-                            }
-                            else if (prevCommand.Equals("pin_locked") && !smartcardCode.Equals("9000"))
-                            {
-                                switch (smartcardCode)
-                                {
-                                    case "63C2":
-                                        systemLog("PUK wrong! 2 Tries remaining.");
-                                        pinIsBlocked(false);
-                                        break;
-                                    case "63C1":
-                                        systemLog("PUK wrong! 1 Tries remaining.");
-                                        pinIsBlocked(false);
-                                        break;
-                                    case "63C0":
-                                        systemLog("PUK wrong! 0 Tries remaining.");
-                                        systemLog("Smartcard is Locked!!!");
-                                        break;
-                                }
-                                break;
-                            }                          
-
-                            if (smartcardData == _scCodes.STATE_INIT && smartcardCode.Equals("9000") && !isSmartcardAuthenticated)
-                            {
-                                //Init Card
-                                initSmartcard();
-                                break;
-                            }
-                            else if (smartcardData == _scCodes.STATE_PIN_LOCKED && smartcardCode.Equals("9000") && !isSmartcardAuthenticated)
-                            {
-                                //PIN is locked
-                                btChangeState("scAppletPINBlocked");
-                                pinIsBlocked(false);
-                                break;
-                            }
-                            else if ((smartcardData == _scCodes.STATE_SECURE_DATA || smartcardData == _scCodes.STATE_SECURE_NO_DATA) && smartcardCode.Equals("9000") && !isSmartcardAuthenticated)
-                            {
-                                //Verify PIN
-                                verifyPIN(false);
-                                break;
-                            }
-
-                            if (prevCommand.Equals("check_file") && smartcardCode.Equals("9000"))
-                            {
-                                smartcardHasFile = true;
-                                String file = _scCodes.dataHexToString(smartcardData);
-                                int cardFileLength = file.Length;
-
-                                smartcardFileModified = file.Substring(cardFileLength - 24, 19);
-                                smartcardFileName = file.Substring(0, cardFileLength - 25);
-
-                                if (debug)
-                                {
-                                    systemLog("Found File <" + smartcardFileName + "> Modified <" + smartcardFileModified + ">");
-                                }
-
-                                cardUnlocked(true);
-                                break;
-                            }
-                            else if (prevCommand.Equals("check_file") && !smartcardCode.Equals("9000"))
-                            {
-                                smartcardHasFile = false;
-                                systemLog("Error getting Filename");
-                            }
-
-                            if (prevCommand.Equals("card_masterPW_set") && smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Master Password successfully uploaded");
-                                masterPassword = true;
-                                cardUnlocked(true);
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_masterPW_set") && !smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Master Password upload failed");
-                                break;
-                            }
-
-                            if (prevCommand.Equals("card_masterPW_delete") && smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Masster Password delete successfull");
-                                masterPassword = false;
-                                cardUnlocked(true);
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_masterPW_delete") && !smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Masster Password delete failed");
-                                break;
-                            }
-
-                            if (prevCommand.Equals("card_masterPW_get") && smartcardCode.Equals("9000"))
-                            {
-                                smartcardData = decryptData(smartcardData);
-
-                                String substr = smartcardData.Substring(0, 2);
-                                int Datalen = int.Parse(substr, NumberStyles.HexNumber);
-                                smartcardData = smartcardData.Substring(smartcardData.Length - Datalen * 2, Datalen * 2);
-
-                                if (openFile)
-                                {     
-                                    openFilePW = _scCodes.dataHexToString(smartcardData);
-                                    openKDBXFile();
+                                case "application_stop":
+                                    btChangeState("disconnected");
                                     break;
-                                }
-                                else if (unlockFile)
-                                {
-                                    openFilePW = _scCodes.dataHexToString(smartcardData);
-                                    unlockDB();
+                                case "smartcard_discovered":
+                                    btChangeState("smartcardDiscovered");
                                     break;
-                                }
-                                else
-                                {
-                                    systemLog("Master Password copied to Clipboard");
-                                    clipboard(_scCodes.dataHexToString(smartcardData));
+                                case "smartcard_connection_refused":
+                                    systemLog("Smartcard connection refused.");
                                     break;
-                                }
-                            }
-                            else if (prevCommand.Equals("card_masterPW_get") && !smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Getting Master Password Failed");
-                                break;
-                            }
-
-                            if (prevCommand.Equals("card_file_size") && smartcardCode.Equals("9000"))
-                            {
-                                String FileSize_1 = smartcardData.Substring(0, 4);
-                                String FileSize_2 = smartcardData.Substring(4, 4);
-
-                                smartcardFileSize_1 = Convert.ToInt32(FileSize_1, 16);
-                                smartcardFileSize_2 = Convert.ToInt32(FileSize_2, 16);
-
-                                if (debug)
-                                {
-                                    systemLog("File 1 size <" + smartcardFileSize_1 + "> File 2 size <" + smartcardFileSize_2 + ">");
-                                }
-
-                                checkFile();
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_file_size") && !smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Error receiving file size");
-                                break;
-                            }
-
-                            if (prevCommand.Equals("card_file_read") && smartcardCode.Equals("9000"))
-                            {
-                                importFile(smartcardData);
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_file_read") && !smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Error receiving file data");
-                                break;
-                            }
-
-                            if (prevCommand.Equals("card_file_delete") && smartcardCode.Equals("9000"))
-                            {
-                                createNewFile();
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_file_delete") && !smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Error deleting data on Smartcard");
-                                break;
-                            }
-
-                            if (prevCommand.Equals("card_file_create") && smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Uploading File to Smartcard Please wait.");
-                                sw2.Reset();
-                                sw2.Start();
-                                uploadFileToSC();
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_file_create") && !smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Error creating File on Smartcard");
-                                break;
-                            }
-
-                            if (prevCommand.Equals("card_file_write") && smartcardCode.Equals("9000"))
-                            {
-                                uploadFileToSC();
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_file_write") && !smartcardCode.Equals("9000"))
-                            {
-                                systemLog("Error uploading File on Smartcard");
-                                break;
-                            }
-
-                            if (prevCommand.Equals("card_delete_1") && smartcardCode.Equals("9000"))
-                            {
-                                deleteAllData(2, "");
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_delete_1") && !smartcardCode.Equals("9000"))
-                            {
-                                switch (smartcardCode)
-                                {
-                                    case "63C2":
-                                        systemLog("Password wrong! 2 Tries remaining.");
-                                        button_Delete_Data.PerformClick();
-                                        break;
-                                    case "63C1":
-                                        systemLog("Password wrong! 1 Tries remaining.");
-                                        button_Delete_Data.PerformClick();
-                                        break;
-                                    case "63C0":
-                                        systemLog("Password wrong! 0 Tries remaining.");
-                                        systemLog("PIN is Locked. Use PUK to unlock.");
-                                        pinIsBlocked(false);
-                                        break;
-                                }
-                                systemLog("Error deleting data");
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_delete_2") && smartcardCode.Equals("9000"))
-                            {
-                                deleteAllData(3, "");
-                                break;
-                            }
-                            else if (prevCommand.Equals("card_delete_2") && smartcardCode.Equals("9000"))
-                            {
-                                deleteAllData(4, "");
-                                break;
-                            }
-                            else if ((prevCommand.Equals("card_delete_1") || prevCommand.Equals("card_delete_2") || prevCommand.Equals("card_delete_3")) && !smartcardCode.Equals("9000"))
-                            {
-                                deleteAllData(5, "");
-                                break;
-                            }
-
-                            if (prevCommand.Equals("card_reset") && smartcardCode.Equals("9000"))
-                            {
-                                if (MessageBox.Show("Smartcard reset successfull.", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information) == DialogResult.OK)
-                                {
+                                case "smartcard_connected":
+                                    btChangeState("smartcardConnected");
+                                    break;
+                                case "smartcard_disconnected":
                                     btChangeState("smartcardDisconnected");
-                                }
-                            }
-                            else if (prevCommand.Equals("card_reset") && !smartcardCode.Equals("9000"))
-                            {
-                                switch (smartcardCode)
-                                {
-                                    case "63C2":
-                                        systemLog("PUK wrong! 2 Tries remaining.");
-                                        button_Reset_Card.PerformClick();
-                                        break;
-                                    case "63C1":
-                                        systemLog("PUK wrong! 1 Tries remaining.");
-                                        button_Reset_Card.PerformClick();
-                                        break;
-                                    case "63C0":
-                                        systemLog("PUK wrong! 0 Tries remaining.");
-                                        systemLog("Smartcard is Locked!!!");
-                                        break;
-                                }
-                                systemLog("Error resetting Smartcard");
-                                break;
+                                    break;
+                                default:
+                                    systemLog("Error Receiving Message");
+                                    break;
                             }
                         }
-                        else
+                        break;
+                    case 2:
+                        if (Get_BT_is_Connected())
                         {
-                            systemLog("Command >" + prevCommand + "< Failed. With: " + _scCodes.getSmartcardResponse(data)[1]);
-                        }
-                    }
-                    break;
-                case 3:
-                    if (_bluetoothClass.isAuthenticated)
-                    {
-                        prevCommand = lastCommand;
-                        lastCommand = "";
+                            smartcardData = _scCodes.getSmartcardResponse(data)[0];
+                            smartcardCode = _scCodes.getSmartcardResponse(data)[1];
 
-                        if (prevCommand.Equals("card_personalize") && is_Smartcard_App_Connected)
-                        {
-                            if (data.Equals("scIsConnected"))
+                            prevCommand = lastCommand;
+                            lastCommand = "";
+
+                            if (debug)
                             {
-                                dialogInitResult(true);
+                                systemLog("Command >" + prevCommand + "< Data: >" + smartcardData + "< Code: >" + smartcardCode + "<");
+                            }
+
+                            if (!is_Smartcard_App_Connected && prevCommand.Equals("apduSelectApplet") && smartcardCode.Equals("9000"))
+                            {
+                                btChangeState("scAppletConnected");
+                                smartcardState = smartcardData;
+                            }
+
+                            if (is_Smartcard_App_Connected)
+                            {
+                                if (prevCommand.Equals("card_personalize") && smartcardCode.Equals("9000"))
+                                {
+                                    initSmartcardResponse(smartcardData);
+                                    systemLog("Command >" + prevCommand + "< Successful");
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_personalize") && !smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Smartcard Error >" + smartcardCode + "<");
+                                }
+
+                                if (prevCommand.Equals("card_verify") && smartcardCode.Equals("9000"))
+                                {
+                                    isSmartcardAuthenticated = true;
+                                    // get Master PW State
+                                    if (smartcardData.Equals("01"))
+                                    {
+                                        masterPassword = true;
+                                    }
+
+                                    systemLog("Card Unlocked");
+                                    cardUnlocked(false);
+
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_verify") && !smartcardCode.Equals("9000"))
+                                {
+                                    switch (smartcardCode)
+                                    {
+                                        case "63C2":
+                                            systemLog("Password wrong! 2 Tries remaining.");
+                                            verifyPIN(false);
+                                            break;
+                                        case "63C1":
+                                            systemLog("Password wrong! 1 Tries remaining.");
+                                            verifyPIN(false);
+                                            break;
+                                        case "63C0":
+                                            systemLog("Password wrong! 0 Tries remaining.");
+                                            systemLog("PIN is Locked. Use PUK to unlock.");
+                                            pinIsBlocked(false);
+                                            break;
+                                    }
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("card_pin_change") && smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("PIN change successfull");
+
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_pin_change") && !smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Error changing PIN");
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("pin_locked") && smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("PIN successfully reset");
+                                    verifyPIN(true);
+                                    break;
+                                }
+                                else if (prevCommand.Equals("pin_locked") && smartcardCode.Equals("9090"))
+                                {
+                                    pinIsBlocked(true);
+                                    return;
+                                }
+                                else if (prevCommand.Equals("pin_locked") && !smartcardCode.Equals("9000"))
+                                {
+                                    switch (smartcardCode)
+                                    {
+                                        case "63C2":
+                                            systemLog("PUK wrong! 2 Tries remaining.");
+                                            pinIsBlocked(false);
+                                            break;
+                                        case "63C1":
+                                            systemLog("PUK wrong! 1 Tries remaining.");
+                                            pinIsBlocked(false);
+                                            break;
+                                        case "63C0":
+                                            systemLog("PUK wrong! 0 Tries remaining.");
+                                            systemLog("Smartcard is Locked!!!");
+                                            break;
+                                    }
+                                    break;
+                                }
+
+                                if (smartcardData == _scCodes.STATE_INIT && smartcardCode.Equals("9000") && !isSmartcardAuthenticated)
+                                {
+                                    //Init Card
+                                    initSmartcard();
+                                    break;
+                                }
+                                else if (smartcardData == _scCodes.STATE_PIN_LOCKED && smartcardCode.Equals("9000") && !isSmartcardAuthenticated)
+                                {
+                                    //PIN is locked
+                                    btChangeState("scAppletPINBlocked");
+                                    pinIsBlocked(false);
+                                    break;
+                                }
+                                else if ((smartcardData == _scCodes.STATE_SECURE_DATA || smartcardData == _scCodes.STATE_SECURE_NO_DATA) && smartcardCode.Equals("9000") && !isSmartcardAuthenticated)
+                                {
+                                    //Verify PIN
+                                    verifyPIN(false);
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("check_file") && smartcardCode.Equals("9000"))
+                                {
+                                    smartcardHasFile = true;
+                                    String file = _scCodes.dataHexToString(smartcardData);
+                                    int cardFileLength = file.Length;
+
+                                    smartcardFileModified = file.Substring(cardFileLength - 24, 19);
+                                    smartcardFileName = file.Substring(0, cardFileLength - 25);
+
+                                    if (debug)
+                                    {
+                                        systemLog("Found File <" + smartcardFileName + "> Modified <" + smartcardFileModified + ">");
+                                    }
+
+                                    cardUnlocked(true);
+                                    break;
+                                }
+                                else if (prevCommand.Equals("check_file") && !smartcardCode.Equals("9000"))
+                                {
+                                    smartcardHasFile = false;
+                                    systemLog("Error getting Filename");
+                                }
+
+                                if (prevCommand.Equals("card_masterPW_set") && smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Master Password successfully uploaded");
+                                    masterPassword = true;
+                                    cardUnlocked(true);
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_masterPW_set") && !smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Master Password upload failed");
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("card_masterPW_delete") && smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Masster Password delete successfull");
+                                    masterPassword = false;
+                                    cardUnlocked(true);
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_masterPW_delete") && !smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Masster Password delete failed");
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("card_masterPW_get") && smartcardCode.Equals("9000"))
+                                {
+                                    smartcardData = decryptData(smartcardData);
+
+                                    String substr = smartcardData.Substring(0, 2);
+                                    int Datalen = int.Parse(substr, NumberStyles.HexNumber);
+                                    smartcardData = smartcardData.Substring(smartcardData.Length - Datalen * 2, Datalen * 2);
+
+                                    if (openFile)
+                                    {
+                                        openFilePW = _scCodes.dataHexToString(smartcardData);
+                                        openKDBXFile();
+                                        break;
+                                    }
+                                    else if (unlockFile)
+                                    {
+                                        openFilePW = _scCodes.dataHexToString(smartcardData);
+                                        unlockDB();
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        systemLog("Master Password copied to Clipboard");
+                                        clipboard(_scCodes.dataHexToString(smartcardData));
+                                        break;
+                                    }
+                                }
+                                else if (prevCommand.Equals("card_masterPW_get") && !smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Getting Master Password Failed");
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("card_file_size") && smartcardCode.Equals("9000"))
+                                {
+                                    String FileSize_1 = smartcardData.Substring(0, 4);
+                                    String FileSize_2 = smartcardData.Substring(4, 4);
+
+                                    smartcardFileSize_1 = Convert.ToInt32(FileSize_1, 16);
+                                    smartcardFileSize_2 = Convert.ToInt32(FileSize_2, 16);
+
+                                    if (debug)
+                                    {
+                                        systemLog("File 1 size <" + smartcardFileSize_1 + "> File 2 size <" + smartcardFileSize_2 + ">");
+                                    }
+
+                                    checkFile();
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_file_size") && !smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Error receiving file size");
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("card_file_read") && smartcardCode.Equals("9000"))
+                                {
+                                    importFile(smartcardData);
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_file_read") && !smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Error receiving file data");
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("card_file_delete") && smartcardCode.Equals("9000"))
+                                {
+                                    createNewFile();
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_file_delete") && !smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Error deleting data on Smartcard");
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("card_file_create") && smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Uploading File to Smartcard Please wait.");
+                                    sw2.Reset();
+                                    sw2.Start();
+                                    uploadFileToSC();
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_file_create") && !smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Error creating File on Smartcard");
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("card_file_write") && smartcardCode.Equals("9000"))
+                                {
+                                    uploadFileToSC();
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_file_write") && !smartcardCode.Equals("9000"))
+                                {
+                                    systemLog("Error uploading File on Smartcard");
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("card_delete_1") && smartcardCode.Equals("9000"))
+                                {
+                                    deleteAllData(2, "");
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_delete_1") && !smartcardCode.Equals("9000"))
+                                {
+                                    switch (smartcardCode)
+                                    {
+                                        case "63C2":
+                                            systemLog("Password wrong! 2 Tries remaining.");
+                                            button_Delete_Data.PerformClick();
+                                            break;
+                                        case "63C1":
+                                            systemLog("Password wrong! 1 Tries remaining.");
+                                            button_Delete_Data.PerformClick();
+                                            break;
+                                        case "63C0":
+                                            systemLog("Password wrong! 0 Tries remaining.");
+                                            systemLog("PIN is Locked. Use PUK to unlock.");
+                                            pinIsBlocked(false);
+                                            break;
+                                    }
+                                    systemLog("Error deleting data");
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_delete_2") && smartcardCode.Equals("9000"))
+                                {
+                                    deleteAllData(3, "");
+                                    break;
+                                }
+                                else if (prevCommand.Equals("card_delete_2") && smartcardCode.Equals("9000"))
+                                {
+                                    deleteAllData(4, "");
+                                    break;
+                                }
+                                else if ((prevCommand.Equals("card_delete_1") || prevCommand.Equals("card_delete_2") || prevCommand.Equals("card_delete_3")) && !smartcardCode.Equals("9000"))
+                                {
+                                    deleteAllData(5, "");
+                                    break;
+                                }
+
+                                if (prevCommand.Equals("card_reset") && smartcardCode.Equals("9000"))
+                                {
+                                    if (MessageBox.Show("Smartcard reset successfull.", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information) == DialogResult.OK)
+                                    {
+                                        btChangeState("smartcardDisconnected");
+                                    }
+                                }
+                                else if (prevCommand.Equals("card_reset") && !smartcardCode.Equals("9000"))
+                                {
+                                    switch (smartcardCode)
+                                    {
+                                        case "63C2":
+                                            systemLog("PUK wrong! 2 Tries remaining.");
+                                            button_Reset_Card.PerformClick();
+                                            break;
+                                        case "63C1":
+                                            systemLog("PUK wrong! 1 Tries remaining.");
+                                            button_Reset_Card.PerformClick();
+                                            break;
+                                        case "63C0":
+                                            systemLog("PUK wrong! 0 Tries remaining.");
+                                            systemLog("Smartcard is Locked!!!");
+                                            break;
+                                    }
+                                    systemLog("Error resetting Smartcard");
+                                    break;
+                                }
                             }
                             else
                             {
-                                dialogInitResult(false);
+                                systemLog("Command >" + prevCommand + "< Failed. With: " + _scCodes.getSmartcardResponse(data)[1]);
                             }
-                            systemLog("Command >" + prevCommand + "< Successful");
-                            break;
                         }
-
-                        if (data.Equals("scIsDisconnected"))
+                        break;
+                    case 3:
+                        if (Get_BT_is_Connected())
                         {
-                            systemLog("Command >" + prevCommand + "< Failed");
-                            btChangeState("smartcardDisconnected");
+                            prevCommand = lastCommand;
+                            lastCommand = "";
+
+                            if (prevCommand.Equals("card_personalize") && is_Smartcard_App_Connected)
+                            {
+                                if (data.Equals("scIsConnected"))
+                                {
+                                    dialogInitResult(true);
+                                }
+                                else
+                                {
+                                    dialogInitResult(false);
+                                }
+                                systemLog("Command >" + prevCommand + "< Successful");
+                                break;
+                            }
+
+                            if (data.Equals("scIsDisconnected"))
+                            {
+                                systemLog("Command >" + prevCommand + "< Failed");
+                                btChangeState("smartcardDisconnected");
+                            }
                         }
-                    }
-                    break;
+                        break;
+                }
             }
         }
 
@@ -700,14 +726,13 @@ namespace smartcardSupport
                 case "connected":
                     barcodePicture.Image = Properties.Resources.barcode2;
                     pictureBoxBluetoothEnable.Image = Properties.Resources.Apps_Bluetooth_Active_icon;
-                    textBoxConnectedDevice.Text = _bluetoothClass.getBTName();
+                    textBoxConnectedDevice.Text = deviceName;
                     break;
 
                 case "disconnected":
                     systemLog("Connection Lost!");
                     pictureBoxBluetoothEnable.Image = Properties.Resources.Apps_Bluetooth_Inactive_icon;
                     textBoxConnectedDevice.Text = "";
-                    _bluetoothClass.isAuthenticated = false;
                     msgBoxClose("Connection Lost! Smartcard Terminal closing.");
                     break;
 
@@ -746,7 +771,7 @@ namespace smartcardSupport
                     systemLog("Smartcard connected");
                     //barcodeLabel.Visible = true;
                     //barcodeLabel.Text = barcodeLabel_SmartcardConnected;
-                    _bluetoothClass.isConnected = true;
+                    //_bluetoothClass.isConnected = true;
                     is_Smartcard_App_Connected = true;
                     // Enable Buttons
                     break;
@@ -768,7 +793,10 @@ namespace smartcardSupport
             }
             
             String sendData = apdu + dataLength + data;
-            _bluetoothClass.sendMSG(code, sendData);
+            if (!SendMessage(code, sendData))
+            {
+                systemLog("Error sending APDU");
+            }
         }
 
         private void sendAPDU(int code, String data2send, String apdu)
@@ -782,13 +810,19 @@ namespace smartcardSupport
             }
 
             String sendData = apdu + dataLength + data;
-            _bluetoothClass.sendMSG(code, sendData);
+            if (!SendMessage(code, sendData))
+            {
+                systemLog("Error sending APDU");
+            }
         }
 
         private void connectSCApp()
         {
             lastCommand = "apduSelectApplet";
-            _bluetoothClass.sendMSG(2, _scCodes.apduSelectApplet);
+            if (!SendMessage(2, _scCodes.apduSelectApplet))
+            {
+                systemLog("Error sending APDU");
+            }
         }
 
         private void initSmartcard()
@@ -801,7 +835,7 @@ namespace smartcardSupport
 
                 if (result == DialogResult.OK)
                 {
-                    if (!_bluetoothClass.isConnected)
+                    if (!Get_BT_is_Connected())
                     {
                         if (MessageBox.Show("Smartcard Disconnected", "Error", MessageBoxButtons.OK, MessageBoxIcon.Information) == DialogResult.OK)
                         {
@@ -813,8 +847,10 @@ namespace smartcardSupport
                     {
                         scPassword = form.pin;
                         lastCommand = "card_personalize";
-
-                        _bluetoothClass.sendMSG(3, "");
+                        if (!SendMessage(3, ""))
+                        {
+                            systemLog("Error sending APDU");
+                        }
                     }
                 }
                 else
@@ -908,7 +944,7 @@ namespace smartcardSupport
 
             if (hasPassword)
             {
-                if (!_bluetoothClass.isConnected)
+                if (!Get_BT_is_Connected())
                 {
                     if (MessageBox.Show("Database Saved", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information) == DialogResult.OK)
                     {
@@ -930,7 +966,7 @@ namespace smartcardSupport
 
                     if (result == DialogResult.OK)
                     {
-                        if (!_bluetoothClass.isConnected)
+                        if (!Get_BT_is_Connected())
                         {
                             if (MessageBox.Show("Database Saved", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information) == DialogResult.OK)
                             {
@@ -1633,11 +1669,11 @@ namespace smartcardSupport
             if (openFilePW.Length == 0 && masterPassword)
             {
                 lastCommand = "card_masterPW_get";
-                sendAPDU(2, "", _scCodes.card_masterPW_get);
+                sendAPDU(2, "", _scCodes.card_masterPW_get_enc);
                 return;
             }
 
-            _bluetoothClass.Close();
+            Stop_BT_Connection();
             
             this.closing = true;
             this.DialogResult = DialogResult.OK;

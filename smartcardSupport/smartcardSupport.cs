@@ -163,10 +163,13 @@ namespace smartcardSupport
             m_host.MainWindow.FileOpened -= this.OnFileOpened;
             m_host.MainWindow.FileClosed -= this.OnFileClosed;
 
-            if (t.IsAlive)
+            if (t != null)
             {
-                t.Abort();
-            }
+                if (t.IsAlive)
+                {
+                    t.Abort();
+                }
+            }  
         }
 
         private void OnFileClosed(object sender, FileClosedEventArgs e)

@@ -40,6 +40,9 @@
     <Reference Include="QRCoder, Version=1.3.3.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\QRCoder.1.3.3\lib\net40\QRCoder.dll</HintPath>
     </Reference>
+    <Reference Include="Smartcard_Terminal">
+      <HintPath>..\..\..\..\Class Library\Smartcard_Terminal\Smartcard_Terminal\bin\Debug\Smartcard_Terminal.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
@@ -60,12 +63,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="bluetoothClass.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="CryptLib.cs" />
     <Compile Include="fileHelper.cs" />
-    <Compile Include="qrCodeClass.cs" />
     <Compile Include="smartcardSupport.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
@@ -106,9 +104,6 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="bluetoothClass.resx">
-      <DependentUpon>bluetoothClass.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
