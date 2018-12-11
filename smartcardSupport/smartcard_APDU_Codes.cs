@@ -4,6 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+/// <summary>
+/// Class for Smartcard commands and converting data
+/// </summary>
 namespace smartcardSupport
 {
     class smartcard_APDU_Codes
@@ -98,6 +101,11 @@ namespace smartcardSupport
 
         private char[] hexArray = "0123456789ABCDEF".ToCharArray();
 
+        /// <summary>
+        /// Method that return only Response-Code from Smartcard
+        /// </summary>
+        /// <param name="response"></param>
+        /// <returns>Response-Code</returns>
         public String[] getSmartcardResponse(String response)
         {
             String[] responseCode = new String[2];
@@ -109,6 +117,12 @@ namespace smartcardSupport
             return responseCode;
         }
 
+        /// <summary>
+        /// Method for checking length of input
+        /// has to be an even length
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns>Updated string</returns>
         public String checkLength(String data)
         {
             if ((data.Length % 2) != 0)
@@ -121,6 +135,11 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method for converting Byte-Array so string
+        /// </summary>
+        /// <param name="dataToConvert"></param>
+        /// <returns>Data as string</returns>
         public String byteToString(byte[] dataToConvert)
         {
             StringBuilder sb = new StringBuilder();
@@ -131,12 +150,22 @@ namespace smartcardSupport
             return sb.ToString();
         }
 
+        /// <summary>
+        /// Method which converts int number to hex number
+        /// </summary>
+        /// <param name="length">length as int</param>
+        /// <returns>Hex length</returns>
         public String StringToHex(int length)
         {
             String hex = length.ToString("X");
             return checkLength(hex);
         }
 
+        /// <summary>
+        /// Method that converts String input to Hex-String
+        /// </summary>
+        /// <param name="input">Data input</param>
+        /// <returns>Hex-String</returns>
         public String textStringToHex(String input)
         {
             Byte[] bytes = Encoding.UTF8.GetBytes(input);
@@ -152,6 +181,11 @@ namespace smartcardSupport
             return new String(hexChars);
         }
 
+        /// <summary>
+        /// Method that converts hex-string to string
+        /// </summary>
+        /// <param name="hexData"></param>
+        /// <returns></returns>
         public String dataHexToString(String hexData)
         {
             StringBuilder sb = new StringBuilder();
@@ -168,6 +202,11 @@ namespace smartcardSupport
             return sb.ToString();
         }
 
+        /// <summary>
+        /// Converts string data to byte-array
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
         public byte[] hexToByteArray(String data)
         {
             String hexchars = "0123456789abcdef";

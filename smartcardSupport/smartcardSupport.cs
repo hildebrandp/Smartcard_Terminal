@@ -2,10 +2,6 @@
 using KeePass.Forms;
 using KeePass;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO;
 using KeePassLib.Keys;
@@ -13,6 +9,10 @@ using KeePassLib.Utility;
 using KeePassLib.Serialization;
 using System.Threading;
 
+/// <summary>
+/// KeePass Plugin Class
+/// This Class is started with the KeePass Software
+/// </summary>
 namespace smartcardSupport
 {
     public sealed class smartcardSupportExt : Plugin
@@ -28,14 +28,18 @@ namespace smartcardSupport
         private String fileModified = String.Empty;
 
         private String openPath = String.Empty;
-        Thread t;
 
+        /// <summary>
+        /// Constructor which creates Menu item for starting the interface
+        /// </summary>
+        /// <param name="host">KeePass instance</param>
+        /// <returns></returns>
         public override bool Initialize(IPluginHost host)
         {
             if (host == null) return false;
             m_host = host;
 
-            this.optionsMenu = new ToolStripMenuItem("Smartcard Terminal");
+            this.optionsMenu = new ToolStripMenuItem("Smartcard-Support");
             this.optionsMenu.Click += OnOptions_Click;
             //this.optionsMenu.Image = ; // Add image
             m_host.MainWindow.ToolsMenu.DropDownItems.Add(this.optionsMenu);
@@ -47,6 +51,11 @@ namespace smartcardSupport
             return true;
         }
 
+        /// <summary>
+        /// MEthod which is called when user clicks on menu item
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e">Event args</param>
         private void OnOptions_Click(object sender, EventArgs e)
         {
             //t = new Thread(() => openSmartcardTerminal());
@@ -54,6 +63,9 @@ namespace smartcardSupport
             openSmartcardTerminal();
         }
 
+        /// <summary>
+        /// Methed that starts the graphical interface
+        /// </summary>
         private void openSmartcardTerminal()
         {
             String lastFile = "";
@@ -94,17 +106,30 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method for checking if Database have unsaved entries
+        /// </summary>
+        /// <returns></returns>
         public Boolean checkUnsavedEntries()
         {
             return m_host.Database.Modified;
         }
 
+        /// <summary>
+        /// Method for opening Database without password
+        /// </summary>
+        /// <param name="filePath">filepath of database</param>
         public void openDatabase(String filePath)
         {
             IOConnectionInfo conInfo = IOConnectionInfo.FromPath(filePath);
             Program.MainForm.OpenDatabase(conInfo, null, false); 
         }
 
+        /// <summary>
+        /// Method for opening and decypting Database
+        /// </summary>
+        /// <param name="filePath">filepath of database</param>
+        /// <param name="password">password of Database</param>
         public void openDatabase(String filePath, String password)
         {
             CompositeKey cmpKey = new CompositeKey();
@@ -116,6 +141,10 @@ namespace smartcardSupport
             Program.MainForm.OpenDatabase(conInfo, cmpKey, false);
         }  
 
+        /// <summary>
+        /// Method that opens last used local Database with password
+        /// </summary>
+        /// <param name="password">passowrd of database</param>
         private void openLastFile(String password)
         {
             CompositeKey cmpKey = new CompositeKey();
@@ -130,6 +159,11 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method that returns name of akcive database
+        /// </summary>
+        /// <param name="e"></param>
+        /// <returns></returns>
         private string getFileName(FileSavingEventArgs e)
         {
             string fName = "";
@@ -158,20 +192,21 @@ namespace smartcardSupport
             return fName;
         }
 
+        /// <summary>
+        /// Method which is called wehn KeePass is closed
+        /// important to deactivate EventListener
+        /// </summary>
         public override void Terminate()
         {
             m_host.MainWindow.FileOpened -= this.OnFileOpened;
             m_host.MainWindow.FileClosed -= this.OnFileClosed;
-
-            if (t != null)
-            {
-                if (t.IsAlive)
-                {
-                    t.Abort();
-                }
-            }  
         }
 
+        /// <summary>
+        /// EventListener Method, called if User closes Database
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OnFileClosed(object sender, FileClosedEventArgs e)
         {
             if (openPath.Equals(e.IOConnectionInfo.Path))
@@ -183,6 +218,11 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// EventListener Method, called if user opens database
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OnFileOpened(object sender, FileOpenedEventArgs e)
         {
             string fName = "";

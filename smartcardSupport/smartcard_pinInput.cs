@@ -8,12 +8,19 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
+
+/// <summary>
+/// Form-Class for PIN input
+/// </summary>
 namespace smartcardSupport
 {
     public partial class smartcard_pinInput : Form
     {
         public string PIN { get; set; }
 
+        /// <summary>
+        /// Constructor, loads Form
+        /// </summary>
         public smartcard_pinInput()
         {
             InitializeComponent();
@@ -21,6 +28,12 @@ namespace smartcardSupport
             inputPIN.UseSystemPasswordChar = true; 
         }
 
+        /// <summary>
+        /// Method which is called when user presses "Enter"
+        /// dosn´t work
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void inputPIN_KeyPress(object sender, KeyPressEventArgs e)
         {
             if (e.KeyChar.Equals("\n") && inputPIN.Text.ToString().Length >= 4)
@@ -35,6 +48,11 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method that checks length of input
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void inputPIN_TextChanged(object sender, EventArgs e)
         {
             if (inputPIN.Text.ToString().Length >= 4)
@@ -47,6 +65,11 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method thats handles user input Buttons 0-9
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void button1_Click(object sender, EventArgs e)
         {
             Button btnSender = sender as Button;
@@ -85,6 +108,11 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method that handles Button "Delete", deletes 1 char of text field
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void buttonDelete_Click(object sender, EventArgs e)
         {
             if (inputPIN.Text.Length > 0)
@@ -93,12 +121,22 @@ namespace smartcardSupport
             } 
         }
 
+        /// <summary>
+        /// Method that handles Button "Cancel", closes Form
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void buttonCancel_Click(object sender, EventArgs e)
         {
             this.DialogResult = DialogResult.Cancel;
             this.Close();
         }
 
+        /// <summary>
+        /// Method that handles Button "OK", sets pin object and closes Form
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void buttonOK_Click(object sender, EventArgs e)
         {
             this.PIN = inputPIN.Text.ToString();
@@ -106,6 +144,11 @@ namespace smartcardSupport
             this.Close();
         }
 
+        /// <summary>
+        /// Method that handles user input "Show", shows PIN
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void checkBoxShowPIN_CheckStateChanged(object sender, EventArgs e)
         {
             if (checkBoxShowPIN.Checked)
@@ -118,6 +161,11 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method that focus the text field
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void smartcard_pinInput_Shown(object sender, EventArgs e)
         {
             inputPIN.Focus();

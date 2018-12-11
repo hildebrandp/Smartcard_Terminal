@@ -9,6 +9,10 @@ using System.Security.Cryptography;
 using System.Threading;
 using Smartcard_Terminal;
 
+/// <summary>
+/// Form-Class for KeePass Plugin
+/// implements Smartcard-Terminal Library
+/// </summary>
 namespace smartcardSupport
 {
     public partial class smartcardDialog : Smartcard_Terminal.Smartcard_Terminal
@@ -60,13 +64,21 @@ namespace smartcardSupport
         public string openFilePW { get; set; }
 
 
-        public Boolean debug = false;
+        public Boolean debug = true;
         Stopwatch sw1 = new Stopwatch();
         Stopwatch sw2 = new Stopwatch();
 
         private Thread startBTCon;
 
-        //Contructor for Form Class
+        /// <summary>
+        /// Constructor, loads Form
+        /// </summary>
+        /// <param name="startcode"></param>
+        /// <param name="scSupportExt"></param>
+        /// <param name="fileName">Name of open Database</param>
+        /// <param name="filePath">Path of open Database</param>
+        /// <param name="fileModified">Last Modified Date</param>
+        /// <param name="lastFile">Name of last used file</param>
         public smartcardDialog(int startcode, smartcardSupportExt scSupportExt, String fileName, String filePath, String fileModified, String lastFile)
         {
             InitializeComponent();
@@ -88,7 +100,7 @@ namespace smartcardSupport
             //Get Version number and Set Window title
             string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
 
-            this.Text = "Bluetooth SmartCard Reader Terminal- " + version + "  ||  Database: " + fileName;
+            this.Text = "Smartcard-Support - " + version + "  ||  Database: " + fileName;
 
             _scCodes = new smartcard_APDU_Codes();
             _scSupport = scSupportExt;
@@ -127,6 +139,9 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method that starts accepting Bluetooth Connection
+        /// </summary>
         private void startBTListener()
         {
             if (open_BT_Connection())
@@ -139,6 +154,10 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method that is called when Bluetooth connection successfull
+        /// </summary>
+        /// <param name="success">true is connection estabished</param>
         private delegate void BT_ConnectionDelegate(Boolean success);
         private void BT_Connection(Boolean success)
         {
@@ -161,11 +180,22 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method which is called when Bluetooth message received
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="e">Message args</param>
         private void newMessage(object a, newMessageEventArgs e)
         {
             receiveMessage(e.Code, e.Message);
         }
 
+        /// <summary>
+        /// Method for encrypting Data for Smartcard
+        /// </summary>
+        /// <param name="data">Data to encrypt</param>
+        /// <param name="pad">true if Data should be padded</param>
+        /// <returns>encrypted String</returns>
         private String encryptData(String data, Boolean pad)
         {
             String pw = CryptLib.getHashSha256(_scCodes.hexToByteArray(_scCodes.checkLength(scPassword)), 64);
@@ -180,7 +210,7 @@ namespace smartcardSupport
             String paddedData;
             if (pad)
             {
-                paddedData = _scCodes.checkLength(scPassword);
+                paddedData = _scCodes.checkLength(data);
                 paddedData = paddedData.PadLeft(32, 'F');
             } else
             {
@@ -194,6 +224,11 @@ namespace smartcardSupport
             return _scCodes.byteToString(encData);
         }
 
+        /// <summary>
+        /// Method for decrypting Data from Smartcard
+        /// </summary>
+        /// <param name="data">encrypted string</param>
+        /// <returns>decrypted string</returns>
         private String decryptData(String data)
         {
             String pw = CryptLib.getHashSha256(_scCodes.hexToByteArray(_scCodes.checkLength(scPassword)), 64);
@@ -212,6 +247,10 @@ namespace smartcardSupport
             return _scCodes.byteToString(decData);
         }
 
+        /// <summary>
+        /// Method to copy String into Clipboard from PC
+        /// </summary>
+        /// <param name="txt">Data</param>
         private delegate void clipboardDelegate(String txt);
         private void clipboard(String txt)
         {
@@ -225,6 +264,10 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Show Message box with givin text
+        /// </summary>
+        /// <param name="txt">Text that should be displayed</param>
         private delegate void msgBoxCloseDelegate(String txt);
         private void msgBoxClose(String txt)
         {
@@ -240,6 +283,11 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// EventListener Method, handles when user closes Form
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void smartcardDialog_FormClosing(object sender, FormClosingEventArgs e)
         {
             if (!closing)
@@ -280,6 +328,11 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method for Updating systemlog, deletes last entry and write new entry
+        /// </summary>
+        /// <param name="txt">Data</param>
+        /// <param name="percent">percentage</param>
         public void updateSystemLog(String txt, double percent)
         {
             listBoxSystemLog.Items.RemoveAt(0);
@@ -288,20 +341,27 @@ namespace smartcardSupport
             listBoxSystemLog.Items.Insert(0, logTime + " >> " + txt + " " + per + " %");
         }
 
+        /// <summary>
+        /// Method that handles all reveived Messages
+        /// </summary>
+        /// <param name="code"></param>
+        /// <param name="data"></param>
         private delegate void receiveMessageDelegate(int code, String data);
         public void receiveMessage(int code, String data)
         {      
             if (this.InvokeRequired)
             {
-                this.Invoke(new receiveMessageDelegate(this.receiveMessage), code, data);
+                try
+                {
+                    this.Invoke(new receiveMessageDelegate(this.receiveMessage), code, data);
+                }
+                catch (Exception e) { }
             }
             else
             {
                 switch (code)
                 {
                     case 1:
-                        if (Get_BT_is_Connected())
-                        {
                             switch (data)
                             {
                                 case "application_stop":
@@ -323,7 +383,6 @@ namespace smartcardSupport
                                     systemLog("Error Receiving Message");
                                     break;
                             }
-                        }
                         break;
                     case 2:
                         if (Get_BT_is_Connected())
@@ -710,10 +769,17 @@ namespace smartcardSupport
                             }
                         }
                         break;
+                    default:
+                        btChangeState("disconnected");
+                        break;
                 }
             }
         }
 
+        /// <summary>
+        /// Method which is called when Bluetooth state is changed
+        /// </summary>
+        /// <param name="state">new state</param>
         public void btChangeState(String state)
         {
             switch (state)
@@ -782,6 +848,13 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Send APDu to Smartcard whithout converting Data
+        /// </summary>
+        /// <param name="code">Code for Android-App</param>
+        /// <param name="data2send">Data to send</param>
+        /// <param name="apdu">APDU-Code</param>
+        /// <param name="noConvert">true if no convert of Data</param>
         private void sendAPDU(int code, String data2send, String apdu, Boolean noConvert)
         {
             String dataLength = "";
@@ -799,6 +872,12 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Send APDu to Smartcard with converting Data
+        /// </summary>
+        /// <param name="code">Code for Android-App</param>
+        /// <param name="data2send">Data to send</param>
+        /// <param name="apdu">APDU-Code</param>
         private void sendAPDU(int code, String data2send, String apdu)
         {
             String dataLength = "";
@@ -816,6 +895,9 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Send APDU for selecting Smartcard Applet
+        /// </summary>
         private void connectSCApp()
         {
             lastCommand = "apduSelectApplet";
@@ -825,6 +907,9 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Show smartcard_Init Form for Personalize Smartcard
+        /// </summary>
         private void initSmartcard()
         {
             systemLog("Card init");
@@ -861,6 +946,10 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Send APDU card_personalize
+        /// </summary>
+        /// <param name="isConnected"></param>
         public void dialogInitResult(Boolean isConnected)
         {
             if (isConnected)
@@ -888,6 +977,10 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Show Message box if personalize was successfull, show PUK
+        /// </summary>
+        /// <param name="puk"></param>
         private void initSmartcardResponse(String puk)
         {
             MessageBox.Show("Smartcard is now Personalized." + Environment.NewLine + "Please note the PUK: " + puk, "Smartcard Terminal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -896,6 +989,10 @@ namespace smartcardSupport
             verifyPIN(true);
         }
 
+        /// <summary>
+        /// Show Form smartcard_pukInput because pin is blocked
+        /// </summary>
+        /// <param name="correctPUK"></param>
         private void pinIsBlocked(Boolean correctPUK)
         {
             if (!correctPUK)
@@ -938,6 +1035,10 @@ namespace smartcardSupport
             }  
         }
 
+        /// <summary>
+        /// Send PIN to Smartcard, if not stored show form for pin input
+        /// </summary>
+        /// <param name="hasPassword"></param>
         private void verifyPIN(Boolean hasPassword)
         {
             lastCommand = "card_verify";
@@ -954,7 +1055,6 @@ namespace smartcardSupport
                 else
                 {
                     //sendAPDU(2, scPassword, _scCodes.card_verify);
- 
                     sendAPDU(2, encryptData(scPassword, true), _scCodes.card_verify_enc);
                 }
             }
@@ -991,6 +1091,10 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method which activates buttons if card is unlocked
+        /// </summary>
+        /// <param name="response"></param>
         private void cardUnlocked(Boolean response)
         {
             if (response)
@@ -1066,19 +1170,34 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Handle Button Unlock Database, get Masterpassword from SMartcard
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void button_UnlockDatabase_Click(object sender, EventArgs e)
         {
             unlockFile = true;
             lastCommand = "card_masterPW_get";
-            sendAPDU(2, "", _scCodes.card_masterPW_get);
+            sendAPDU(2, "", _scCodes.card_masterPW_get_enc);
         }
 
+        /// <summary>
+        /// Handle Button Open Database, call Method openKDBXFile
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void button_OpenDatabase_Click(object sender, EventArgs e)
         {
             openFile = true;
             openKDBXFile();
         }
 
+        /// <summary>
+        /// Handle Button Import File, start Import
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void button_Import_File_Click(object sender, EventArgs e)
         {
             sw1.Reset();
@@ -1087,13 +1206,27 @@ namespace smartcardSupport
             sendAPDU(2, "", _scCodes.card_file_size);
         }
 
+        /// <summary>
+        /// Handle Button Export File, start export
+        /// zip file, check name if a file is already on smartcard
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void button_Export_File_Click(object sender, EventArgs e)
         {
-            sw1.Reset();
-            sw1.Start();
-            exportData = fileHelper.ZIPFile(fileName, filePath, fileModified);
+            Stopwatch sw3 = new Stopwatch();
+            sw3.Start();
+
+            systemLog("Zipping...");
+            exportData = fileHelper.ZIPFile(fileName, filePath);
+            sw3.Stop();
+            systemLog("Zip in: " + sw3.ElapsedMilliseconds);
+
             fileOffset = 0;
             readLength = 250;
+
+            sw1.Reset();
+            sw1.Start();
 
             Boolean import = true;
 
@@ -1145,6 +1278,10 @@ namespace smartcardSupport
             createNewFile();
         }
 
+        /// <summary>
+        /// Export, Check File size
+        /// Create FIle on Smartcard
+        /// </summary>
         private void createNewFile()
         {
             int len = exportData.Length / 2;
@@ -1196,6 +1333,10 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Export Data
+        /// Upload 250 Byte of Data every time method is called
+        /// </summary>
         private void uploadFileToSC()
         {
             String tmpSend;
@@ -1282,6 +1423,12 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Handle Button Set Masterpassword
+        /// Show Form, send MPW to smartcard
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void button_Set_MPW_Click(object sender, EventArgs e)
         {
             using (var form = new smartcard_PasswordInput())
@@ -1310,12 +1457,24 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Handle Button Get Masterpassword
+        /// get mpw from smartcard, copie to clipboard
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void button_Get_MPW_Click(object sender, EventArgs e)
         {
             lastCommand = "card_masterPW_get";
             sendAPDU(2, "", _scCodes.card_masterPW_get_enc);
         }
 
+        /// <summary>
+        /// Handle Button Delete Data
+        /// calls method deleteAllData
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void button_Delete_Data_Click(object sender, EventArgs e)
         {
             if (MessageBox.Show("Do you really want to delete all Data on the Smartcard?", "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK)
@@ -1324,6 +1483,11 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method for deleting all Data from smartcard
+        /// </summary>
+        /// <param name="number"></param>
+        /// <param name="pin"></param>
         private void deleteAllData(int number, String pin)
         {
             if (number == 1)
@@ -1382,6 +1546,14 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Handle Button Reset Card
+        /// Open Messagebox with choice for change PIN or Restet Card
+        /// Reset Card show Form for PUK input
+        /// Change PIN show Form for new PIN
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void button_Reset_Card_Click(object sender, EventArgs e)
         {
             var res = MessageBox.Show("Really want to reset Card?\n Press YES to reset the Smartcard,\n if you want to change Pin press No.", "Information", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
@@ -1395,6 +1567,7 @@ namespace smartcardSupport
                     if (result == DialogResult.OK)
                     {
                         lastCommand = "card_reset";
+
                         sendAPDU(2, encryptData(form.puk, true), _scCodes.card_reset_enc);
                     }
                 }
@@ -1403,9 +1576,9 @@ namespace smartcardSupport
             {
                 using (var form = new smartcard_Init())
                 {
-                    var result = form.ShowDialog();
                     form.Text = "Change PIN";
                     form.label1.Text = "Please enter new PIN:";
+                    var result = form.ShowDialog();
 
                     if (result == DialogResult.OK)
                     {
@@ -1413,20 +1586,17 @@ namespace smartcardSupport
                         String pwNew = form.pin;
                         String pwOld = scPassword;
 
-                        while (pwNew.Length < 32)
-                        {
-                            pwNew += "0";
-                        }
+                        pwNew = _scCodes.checkLength(pwNew);
+                        pwNew = pwNew.PadRight(32, '0');
 
-                        while (pwOld.Length < 32)
-                        {
-                            pwOld += "0";
-                        }
+                        pwOld = _scCodes.checkLength(pwOld);
+                        pwOld = pwOld.PadRight(32, '0');
 
                         scPassword = form.pin;
-                        String oldPW = encryptData(pwOld, true);
-                        String newPW = encryptData(pwNew, true);
-                        sendAPDU(2, oldPW + newPW, _scCodes.card_pin_change_enc);
+                        pwNew = encryptData(pwNew, false);
+                        pwOld = encryptData(pwOld, false);
+
+                        sendAPDU(2, pwOld + pwNew, _scCodes.card_pin_change_enc);
                     }
                     else
                     {
@@ -1436,6 +1606,10 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Import, FolderBrowserDialog for import path
+        /// check if file already exists
+        /// </summary>
         private delegate void checkFileDelegate();
         private void checkFile()
         {
@@ -1518,11 +1692,20 @@ namespace smartcardSupport
                             sw2.Start();
                             importFile("");
                         }
+                    } else if (openFile)
+                    {
+                        openFile = false;
                     }
                 }
             }
         }
 
+        /// <summary>
+        /// Import
+        /// Import 250 Bytes of Data from smartcard everytime this method is called
+        /// if finished unzip file
+        /// </summary>
+        /// <param name="data"></param>
         private void importFile(String data)
         {
             lastCommand = "card_file_read";
@@ -1617,7 +1800,7 @@ namespace smartcardSupport
                 sw3.Start();
 
                 systemLog("Unzipping...");
-                fileHelper.unZIPFile(smartcardFileName, pathForFile, newKeePassFile.ToString());
+                fileHelper.unZIPFile(pathForFile, newKeePassFile.ToString());
                 sw3.Stop();
 
                 if (debug)
@@ -1627,7 +1810,7 @@ namespace smartcardSupport
                     systemLog("Import complete. Read: " + newKeePassFile.Length);
                     systemLog("Unzip: " + sw3.ElapsedMilliseconds);
                 }
-                
+                systemLog("Unzip: " + sw3.ElapsedMilliseconds);
                 openFilePath = pathForFile + smartcardFileName + ".kdbx";
                 if (openFile)
                 {
@@ -1645,6 +1828,9 @@ namespace smartcardSupport
             //END IMPORT
         }
 
+        /// <summary>
+        /// Close Form with result code YES, last used Database will be opened
+        /// </summary>
         private void unlockDB()
         {
             this.closing = true;
@@ -1652,6 +1838,11 @@ namespace smartcardSupport
             this.Close();
         }
 
+        /// <summary>
+        /// Method for Openening Database from smartcard
+        /// if not already imported, import File and mastzerpassword
+        /// Close form with result code OK to open and unlock database is mpw is avilable
+        /// </summary>
         private void openKDBXFile()
         {
             if (openFilePath.Length == 0 && smartcardHasFile)

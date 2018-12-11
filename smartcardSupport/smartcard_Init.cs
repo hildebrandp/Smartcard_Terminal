@@ -1,20 +1,20 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
+
+/// <summary>
+/// Form-Class for Smartcard Init
+/// </summary>
 namespace smartcardSupport
 {
     public partial class smartcard_Init : Form
     {
         public string pin { get; set; }
 
+        /// <summary>
+        /// Constructor, load Form
+        /// </summary>
         public smartcard_Init()
         {
             InitializeComponent();
@@ -29,6 +29,11 @@ namespace smartcardSupport
             in_pin_1.Focus();
         }
 
+        /// <summary>
+        /// Method that handles user input "show", show PIN
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void show_pin_CheckStateChanged(object sender, EventArgs e)
         {
             if (show_pin.Checked)
@@ -43,6 +48,11 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method that handles user input "OK", set PIN and close form
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void button_ok_Click(object sender, EventArgs e)
         {
             this.pin = in_pin_1.Text.ToString();
@@ -50,12 +60,23 @@ namespace smartcardSupport
             this.Close();
         }
 
+        /// <summary>
+        /// Method that handles user input "Cancel", close form
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void button_cancel_Click(object sender, EventArgs e)
         {
             this.DialogResult = DialogResult.Cancel;
             this.Close();
         }
 
+        /// <summary>
+        /// Method that handles user input into text field
+        /// check length of input, enable button ok if long enough and both inputs are the same
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void in_pin_2_TextChanged(object sender, EventArgs e)
         {
             if (in_pin_2.Text.ToString().Length >= 4)
@@ -79,6 +100,12 @@ namespace smartcardSupport
             }
         }
 
+        /// <summary>
+        /// Method that handles user input before insert into text field
+        /// Check char
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void in_pin_2_KeyPress(object sender, KeyPressEventArgs e)
         {
             if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))

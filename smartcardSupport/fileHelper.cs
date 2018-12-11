@@ -7,12 +7,20 @@ using System.IO;
 using System.IO.Compression;
 using System.Windows.Forms;
 
+/// <summary>
+/// Class for writing and reading Data from file
+/// </summary>
 namespace smartcardSupport
 {
     static class fileHelper
     {
-
-        public static Boolean unZIPFile(String filename, String path, String data)
+        /// <summary>
+        /// Method writes Data to zip-file and unzips file
+        /// </summary>
+        /// <param name="path">Filepath</param>
+        /// <param name="data">Fiule data</param>
+        /// <returns>true is successfull</returns>
+        public static Boolean unZIPFile(String path, String data)
         {
             try
             {
@@ -33,7 +41,13 @@ namespace smartcardSupport
             return true;
         }
 
-        public static String ZIPFile(String filename, String path, String fileModified)
+        /// <summary>
+        /// Method zips File and read data from File
+        /// </summary>
+        /// <param name="path">Filepath</param>
+        /// <param name="data">Fiule data</param>
+        /// <returns>Data from File</returns>
+        public static String ZIPFile(String filename, String path)
         {
             try
             {
